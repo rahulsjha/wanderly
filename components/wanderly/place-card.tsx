@@ -1,20 +1,22 @@
-import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import type { Place } from '@/types/wanderly';
 import { Wanderly } from '@/constants/wanderly-theme';
 import { categoryLabel, formatDuration } from '@/lib/format';
 import { localDestinationForId } from '@/lib/place-assets';
+import { placeHindiName } from '@/lib/place-hindi';
 import { unsplashPlaceImageUrl } from '@/lib/place-image';
+import type { Place } from '@/types/wanderly';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useMemo } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withSpring,
-  withTiming,
+    interpolate,
+    useAnimatedStyle,
+    useSharedValue,
+    withSequence,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
 
 export function PlaceCard({
@@ -33,6 +35,11 @@ export function PlaceCard({
 
   const addScale = useSharedValue(1);
   const ring = useSharedValue(0);
+  const ribbonT = useSharedValue(added ? 1 : 0);
+
+  useEffect(() => {
+    ribbonT.value = withTiming(added ? 1 : 0, { duration: added ? 240 : 160 });
+  }, [added, ribbonT]);
 
   const addStyle = useAnimatedStyle(() => ({
     transform: [{ scale: addScale.value }],
@@ -42,6 +49,14 @@ export function PlaceCard({
     opacity: 1 - ring.value,
     transform: [{ scale: 0.6 + ring.value * 1.7 }],
   }));
+
+  const ribbonStyle = useAnimatedStyle(() => {
+    const t = ribbonT.value;
+    return {
+      opacity: t,
+      transform: [{ translateX: interpolate(t, [0, 1], [16, 0]) }],
+    };
+  });
 
   const onToggleWithDelight = async () => {
     addScale.value = withSequence(
@@ -83,9 +98,9 @@ export function PlaceCard({
 
           {added ? (
             <View style={styles.ribbonWrap} pointerEvents="none">
-              <View style={styles.ribbon}>
+              <Animated.View style={[styles.ribbon, ribbonStyle]}>
                 <Text style={styles.ribbonText}>In your plan</Text>
-              </View>
+              </Animated.View>
             </View>
           ) : null}
         </View>
@@ -123,11 +138,11 @@ export function PlaceCard({
         </View>
 
         <View style={styles.titleBlock}>
-          <Text numberOfLines={2} style={styles.title}>
+          <Text numberOfLines={2} ellipsizeMode="tail" style={styles.title}>
             {place.name}
           </Text>
           <Text numberOfLines={1} style={styles.hindi}>
-            {place.category === 'landmark' ? 'स्थल' : place.category === 'shopping' ? 'बाज़ार' : 'जयपुर'}
+            {placeHindiName(place)}
           </Text>
         </View>
       </View>

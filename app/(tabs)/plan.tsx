@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -8,12 +9,15 @@ import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flat
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { JaliPattern } from '@/components/wanderly/jali-pattern';
 import { PrimaryButton } from '@/components/wanderly/primary-button';
 import { UndoToast } from '@/components/wanderly/toast';
 import { Wanderly } from '@/constants/wanderly-theme';
 import { placesById } from '@/data/mock-data';
 import { categoryLabel, formatDuration } from '@/lib/format';
 import { localDestinationForId } from '@/lib/place-assets';
+import { placeHindiName } from '@/lib/place-hindi';
+import { unsplashPlaceImageUrl } from '@/lib/place-image';
 import { buildTimeline, formatTime } from '@/lib/time';
 import { usePlanStore } from '@/store/plan-store';
 
@@ -39,13 +43,30 @@ export default function PlanScreen() {
 
   const header = (
     <View style={styles.header}>
+      <LinearGradient
+        colors={[Wanderly.colors.ink, Wanderly.colors.deepRose, Wanderly.colors.primary]}
+        locations={[0, 0.62, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <JaliPattern opacity={0.07} />
+      </View>
+      <LinearGradient
+        colors={['rgba(251,247,242,0.08)', 'rgba(251,247,242,0.74)', Wanderly.colors.warmWhite]}
+        locations={[0, 0.65, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
       <Text style={styles.title}>My Plan</Text>
+      <Text style={styles.titleHi}>मेरी योजना</Text>
       <Text style={styles.sub}>Start 9:00 AM · Build a realistic day</Text>
 
-      <View style={styles.summaryCard}>
-        <SummaryPill label="Stops" value={`${placeIds.length}`} icon="location" />
-        <SummaryPill label="Total" value={formatDuration(timeline.totalDurationMin)} icon="time" />
-        <SummaryPill label="Ends" value={formatTime(timeline.end)} icon="flag" />
+      <View style={styles.summaryBar}>
+        <SummaryStat label="Stops" value={`${placeIds.length}`} icon="location" />
+        <View style={styles.summaryDivider} />
+        <SummaryStat label="Total" value={formatDuration(timeline.totalDurationMin)} icon="time" />
+        <View style={styles.summaryDivider} />
+        <SummaryStat label="Ends" value={formatTime(timeline.end)} icon="flag" />
       </View>
 
       {warning ? (
@@ -130,7 +151,7 @@ export default function PlanScreen() {
   );
 }
 
-function SummaryPill({
+function SummaryStat({
   label,
   value,
   icon,
@@ -140,12 +161,12 @@ function SummaryPill({
   icon: keyof typeof Ionicons.glyphMap;
 }) {
   return (
-    <View style={styles.pill}>
-      <Ionicons name={icon} size={16} color={Wanderly.colors.tint} />
-      <View style={{ gap: 2 }}>
-        <Text style={styles.pillLabel}>{label}</Text>
-        <Text style={styles.pillValue}>{value}</Text>
+    <View style={styles.stat}>
+      <View style={styles.statTop}>
+        <Ionicons name={icon} size={16} color={Wanderly.colors.gold} />
+        <Text style={styles.statLabel}>{label}</Text>
       </View>
+      <Text style={styles.statValue}>{value}</Text>
     </View>
   );
 }
@@ -173,26 +194,36 @@ function TimelineRow({
 
   return (
     <Animated.View style={[styles.rowWrap, activeStyle, isActive && styles.rowActive]}>
-      {row?.travelGapMinBefore ? (
-        <View style={styles.travelGap}>
-          <View style={styles.travelLine} />
-          <Text style={styles.travelText}>{row.travelGapMinBefore} min travel</Text>
-          <View style={styles.travelLine} />
-        </View>
-      ) : null}
-
       <View style={styles.row}>
         <View style={styles.orderCol}>
           <View style={styles.orderCircle}>
             <Text style={styles.orderText}>{index + 1}</Text>
           </View>
-          <View style={styles.timelineLine} />
+
+          {index < timeline.length - 1 ? (
+            <View style={styles.timelineLine} />
+          ) : (
+            <View style={styles.timelineLineEnd} />
+          )}
         </View>
 
-        <View style={{ flex: 1, gap: 10 }}>
+        <View style={styles.contentCol}>
+          {row?.travelGapMinBefore ? (
+            <View style={styles.travelGap}>
+              <Ionicons name="car" size={14} color="rgba(26,16,8,0.62)" />
+              <Text style={styles.travelText}>{row.travelGapMinBefore} min travel</Text>
+            </View>
+          ) : null}
+
           <View style={styles.card}>
+            <View
+              style={[
+                styles.cardAccent,
+                place ? { backgroundColor: accentForCategory(place.category) } : null,
+              ]}
+            />
             <Image
-              source={{ uri: place?.image_url }}
+              source={{ uri: place ? unsplashPlaceImageUrl(place) : undefined }}
               placeholder={localDestinationForId(item)}
               transition={180}
               contentFit="cover"
@@ -201,9 +232,11 @@ function TimelineRow({
 
             <View style={{ flex: 1, gap: 6 }}>
               <View style={styles.cardTop}>
-                <Text numberOfLines={2} style={styles.cardTitle}>
-                  {place?.name ?? 'Unknown place'}
-                </Text>
+                <View style={styles.titleWrap}>
+                  <Text numberOfLines={2} ellipsizeMode="tail" style={styles.cardTitle}>
+                    {place?.name ?? 'Unknown place'}
+                  </Text>
+                </View>
 
                 <View style={styles.actions}>
                   <Pressable
@@ -229,6 +262,8 @@ function TimelineRow({
                 {row ? `${formatTime(row.start)} – ${formatTime(row.end)}` : ''}
                 {place ? ` · ${categoryLabel(place.category)} · ${formatDuration(place.estimated_duration_min)}` : ''}
               </Text>
+
+              {place ? <Text style={styles.cardHi}>{placeHindiName(place)}</Text> : null}
             </View>
           </View>
         </View>
@@ -237,10 +272,27 @@ function TimelineRow({
   );
 }
 
+function accentForCategory(category: string) {
+  switch (category) {
+    case 'landmark':
+      return Wanderly.colors.primary;
+    case 'restaurant':
+      return Wanderly.colors.deepRose;
+    case 'cafe':
+      return Wanderly.colors.gold;
+    case 'activity':
+      return Wanderly.colors.primary;
+    case 'shopping':
+      return Wanderly.colors.gold;
+    default:
+      return Wanderly.colors.primary;
+  }
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Wanderly.colors.surface2,
+    backgroundColor: Wanderly.colors.warmWhite,
   },
   header: {
     paddingHorizontal: 16,
@@ -248,48 +300,74 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Wanderly.colors.border,
-    backgroundColor: Wanderly.colors.surface2,
+    backgroundColor: Wanderly.colors.warmWhite,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '900',
+    fontSize: 32,
     color: Wanderly.colors.ink,
     letterSpacing: -0.6,
+    fontFamily: Wanderly.fonts.displayItalic,
+  },
+  titleHi: {
+    marginTop: 2,
+    fontSize: 14,
+    color: 'rgba(196,146,42,0.95)',
+    fontFamily: Wanderly.fonts.devanagari,
   },
   sub: {
     marginTop: 4,
     fontSize: 13,
-    fontWeight: '600',
-    color: Wanderly.colors.ink,
-    opacity: 0.62,
+    color: Wanderly.colors.mutedText,
+    fontFamily: Wanderly.fonts.ui,
   },
   summaryCard: {
     marginTop: 14,
     flexDirection: 'row',
     gap: 10,
   },
-  pill: {
-    flex: 1,
-    backgroundColor: Wanderly.colors.surface,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Wanderly.colors.border,
-    padding: 12,
+  summaryBar: {
+    marginTop: 14,
     flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
+    alignItems: 'stretch',
+    borderRadius: 18,
+    backgroundColor: Wanderly.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(26,16,8,0.10)',
+    shadowColor: 'rgba(26,16,8,1)',
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+    overflow: 'hidden',
   },
-  pillLabel: {
+  summaryDivider: {
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(26,16,8,0.10)',
+  },
+  stat: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 6,
+  },
+  statTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: Wanderly.colors.muted,
+    color: 'rgba(26,16,8,0.55)',
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
+    fontFamily: Wanderly.fonts.uiBold,
   },
-  pillValue: {
-    fontSize: 13,
-    fontWeight: '900',
+  statValue: {
+    fontSize: 20,
     color: Wanderly.colors.ink,
+    letterSpacing: -0.4,
+    fontFamily: Wanderly.fonts.displayItalic,
   },
   warning: {
     marginTop: 12,
@@ -307,7 +385,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: 'rgba(17,24,28,0.78)',
+    color: 'rgba(26,16,8,0.78)',
+    fontFamily: Wanderly.fonts.ui,
   },
   empty: {
     flex: 1,
@@ -326,14 +405,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     color: Wanderly.colors.ink,
+    fontFamily: Wanderly.fonts.displayItalic,
   },
   emptyDesc: {
     textAlign: 'center',
     fontSize: 13,
     fontWeight: '600',
-    color: Wanderly.colors.muted,
+    color: Wanderly.colors.mutedText,
     lineHeight: 18,
     paddingHorizontal: 10,
+    fontFamily: Wanderly.fonts.uiRegular,
   },
   rowWrap: {
     paddingHorizontal: 16,
@@ -348,26 +429,36 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
   },
   travelGap: {
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Wanderly.radius.pill,
+    backgroundColor: 'rgba(196, 146, 42, 0.12)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(196, 146, 42, 0.22)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingLeft: 42,
-    paddingRight: 12,
-    paddingBottom: 10,
-  },
-  travelLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(17,24,28,0.10)',
+    gap: 8,
+    shadowColor: 'rgba(26,16,8,1)',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
   },
   travelText: {
     fontSize: 12,
     fontWeight: '800',
-    color: Wanderly.colors.muted,
+    color: 'rgba(26,16,8,0.72)',
+    fontFamily: Wanderly.fonts.uiBold,
   },
   row: {
     flexDirection: 'row',
     gap: 12,
+  },
+  contentCol: {
+    flex: 1,
+    gap: 10,
+    minWidth: 0,
   },
   orderCol: {
     width: 30,
@@ -377,7 +468,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: Wanderly.colors.tint,
+    backgroundColor: Wanderly.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -385,13 +476,20 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '900',
     fontSize: 12,
+    fontFamily: Wanderly.fonts.uiBold,
   },
   timelineLine: {
     flex: 1,
     width: 2,
-    backgroundColor: 'rgba(10, 126, 164, 0.22)',
+    backgroundColor: 'rgba(196, 146, 42, 0.40)',
     marginTop: 10,
-    borderRadius: 2,
+    marginBottom: -10,
+    borderRadius: 999,
+  },
+  timelineLineEnd: {
+    height: 12,
+    marginTop: 10,
+    opacity: 0,
   },
   card: {
     flexDirection: 'row',
@@ -400,6 +498,10 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Wanderly.colors.border,
     overflow: 'hidden',
+  },
+  cardAccent: {
+    width: 3,
+    backgroundColor: Wanderly.colors.primary,
   },
   thumb: {
     width: 88,
@@ -416,22 +518,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  cardTitle: {
+  titleWrap: {
     flex: 1,
+    minWidth: 0,
+  },
+  cardTitle: {
     paddingTop: 10,
     paddingLeft: 12,
     fontSize: 15,
     fontWeight: '900',
     color: Wanderly.colors.ink,
     lineHeight: 20,
+    fontFamily: Wanderly.fonts.uiBold,
   },
   cardMeta: {
     paddingLeft: 12,
     paddingRight: 12,
-    paddingBottom: 12,
+    paddingBottom: 2,
     fontSize: 12,
     fontWeight: '700',
-    color: Wanderly.colors.muted,
+    color: Wanderly.colors.mutedText,
     lineHeight: 16,
+    fontFamily: Wanderly.fonts.ui,
+  },
+  cardHi: {
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingBottom: 12,
+    fontSize: 12,
+    color: 'rgba(196,146,42,0.95)',
+    fontFamily: Wanderly.fonts.devanagari,
   },
 });

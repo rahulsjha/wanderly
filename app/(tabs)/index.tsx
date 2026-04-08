@@ -1,15 +1,17 @@
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 
 import { SheetBackdrop } from '@/components/wanderly/bottom-sheet-backdrop';
 import { CategoryChips } from '@/components/wanderly/category-chips';
+import { JaliPattern } from '@/components/wanderly/jali-pattern';
 import { PlaceCard } from '@/components/wanderly/place-card';
 import { PlanCountBadge } from '@/components/wanderly/plan-count-badge';
 import { PrimaryButton } from '@/components/wanderly/primary-button';
@@ -19,10 +21,10 @@ import { Wanderly } from '@/constants/wanderly-theme';
 import { CATEGORIES, PLACES } from '@/data/mock-data';
 import { categoryLabel, formatDuration } from '@/lib/format';
 import { localDestinationForId } from '@/lib/place-assets';
+import { placeHindiName } from '@/lib/place-hindi';
 import { unsplashPlaceImageUrl } from '@/lib/place-image';
 import { usePlanStore } from '@/store/plan-store';
 import type { Place, PlaceCategory } from '@/types/wanderly';
-import { JaliPattern } from '@/components/wanderly/jali-pattern';
 
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
@@ -51,6 +53,16 @@ export default function ExploreScreen() {
       );
     });
   }, [query, categoryId]);
+
+  const countBump = useSharedValue(1);
+  useEffect(() => {
+    countBump.value = 0.96;
+    countBump.value = withSpring(1, { damping: 14, stiffness: 240 });
+  }, [filtered.length, countBump]);
+
+  const countAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: countBump.value }],
+  }));
 
   const openDetail = useCallback(async (place: Place) => {
     setSelected(place);
@@ -107,7 +119,7 @@ export default function ExploreScreen() {
 
       <View style={styles.resultsHeader}>
         <Text style={styles.resultsTitle}>Places</Text>
-        <Text style={styles.resultsMeta}>{filtered.length} places found</Text>
+        <Animated.Text style={[styles.resultsMeta, countAnim]}>{filtered.length} places found</Animated.Text>
       </View>
 
       <FlashList
@@ -144,16 +156,43 @@ export default function ExploreScreen() {
             <View style={styles.sheetBody}>
               <View style={styles.sheetTitleRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.sheetTitle}>{selected.name}</Text>
-                  <Text style={styles.sheetSub}>Rated {selected.rating.toFixed(1)} · {categoryLabel(selected.category)}</Text>
+                  <Text numberOfLines={2} ellipsizeMode="tail" style={styles.sheetTitle}>
+                    {selected.name}
+                  </Text>
+                  <Text style={styles.sheetHi}>{placeHindiName(selected)}</Text>
+                  <Text style={styles.sheetSub}>
+                    Rated {selected.rating.toFixed(1)} · {categoryLabel(selected.category)}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.factsRow}>
                 <Fact label="Duration" value={formatDuration(selected.estimated_duration_min)} />
-                <Fact label="Price" value={selected.price_level} />
+                <Fact label="Price" valueNode={<PriceDots level={selected.price_level} />} />
                 <Fact label="Hours" value={selected.opening_hours} />
               </View>
+
+              <View style={styles.tipCard}>
+                <Text style={styles.tipKicker}>Insider tip</Text>
+                <Text style={styles.tipText}>{insiderTipFor(selected)}</Text>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.photoRow}
+              >
+                {(['detail', 'interior', 'street', 'architecture'] as const).map((k) => (
+                  <Image
+                    key={k}
+                    source={{ uri: unsplashPlaceImageUrl(selected, { w: 520, h: 360 }, k) }}
+                    placeholder={localDestinationForId(selected.id)}
+                    transition={180}
+                    contentFit="cover"
+                    style={styles.photo}
+                  />
+                ))}
+              </ScrollView>
 
               <View style={styles.tagsRow}>
                 {selected.tags.slice(0, 6).map((t) => (
@@ -178,15 +217,54 @@ export default function ExploreScreen() {
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({
+  label,
+  value,
+  valueNode,
+}: {
+  label: string;
+  value?: string;
+  valueNode?: ReactNode;
+}) {
   return (
     <View style={styles.fact}>
       <Text style={styles.factLabel}>{label}</Text>
-      <Text numberOfLines={2} style={styles.factValue}>
-        {value}
-      </Text>
+      {valueNode ? (
+        <View style={{ marginTop: 2 }}>{valueNode}</View>
+      ) : (
+        <Text numberOfLines={2} style={styles.factValue}>
+          {value}
+        </Text>
+      )}
     </View>
   );
+}
+
+function PriceDots({ level }: { level: string }) {
+  if (/free/i.test(level)) {
+    return <Text style={styles.factValue}>Free</Text>;
+  }
+
+  const count = Math.max(1, (level.match(/\$/g) ?? []).length);
+  return (
+    <View style={styles.priceRow}>
+      {Array.from({ length: 4 }).map((_, idx) => {
+        const active = idx < count;
+        return <View key={idx} style={[styles.priceDot, active ? styles.priceDotOn : styles.priceDotOff]} />;
+      })}
+    </View>
+  );
+}
+
+function insiderTipFor(place: Place) {
+  const tags = new Set(place.tags.map((t) => t.toLowerCase()));
+  if (tags.has('sunset')) return 'Go 45 minutes before sunset for golden light and fewer crowds.';
+  if (tags.has('photography')) return 'Arrive right at opening to catch soft light and clean frames.';
+  if (tags.has('rooftop') || tags.has('views')) return 'Ask for the best corner table—views make the stop.';
+  if (place.category === 'shopping') return 'Carry cash, start 30% lower, and smile—haggling is part of the fun.';
+  if (place.category === 'cafe') return 'Order a chai/coffee plus one local sweet—quick and satisfying.';
+  if (place.category === 'restaurant') return 'If you can, go slightly earlier than peak hours for faster service.';
+  return 'Keep 10–15 minutes buffer for traffic between stops.';
 }
 
 const styles = StyleSheet.create({
@@ -278,6 +356,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
     fontFamily: Wanderly.fonts.displayItalic,
   },
+  sheetHi: {
+    marginTop: 2,
+    fontSize: 14,
+    color: 'rgba(196,146,42,0.95)',
+    fontFamily: Wanderly.fonts.devanagari,
+  },
   sheetSub: {
     marginTop: 4,
     fontSize: 13,
@@ -311,6 +395,55 @@ const styles = StyleSheet.create({
     color: Wanderly.colors.ink,
     opacity: 0.9,
     fontFamily: Wanderly.fonts.ui,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  priceDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 8,
+  },
+  priceDotOn: {
+    backgroundColor: Wanderly.colors.primary,
+  },
+  priceDotOff: {
+    backgroundColor: 'rgba(26,16,8,0.10)',
+  },
+  tipCard: {
+    marginTop: 2,
+    backgroundColor: Wanderly.colors.sand,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(26,16,8,0.10)',
+    padding: 12,
+    gap: 6,
+  },
+  tipKicker: {
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: 'rgba(26,16,8,0.60)',
+    fontFamily: Wanderly.fonts.uiBold,
+  },
+  tipText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(26,16,8,0.82)',
+    fontFamily: Wanderly.fonts.uiRegular,
+  },
+  photoRow: {
+    paddingTop: 2,
+    paddingBottom: 2,
+    gap: 10,
+  },
+  photo: {
+    width: 150,
+    height: 96,
+    borderRadius: 16,
+    backgroundColor: Wanderly.colors.surface2,
   },
   tagsRow: {
     flexDirection: 'row',

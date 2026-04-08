@@ -29,8 +29,14 @@ function categoryHint(category: PlaceCategory) {
  * Jaipur-specific imagery using Unsplash Source.
  * No API key required; returns a URL that resolves to a contextual photo.
  */
-export function unsplashPlaceImageUrl(place: Pick<Place, 'name' | 'category'>, size = { w: 1400, h: 1050 }) {
+export function unsplashPlaceImageUrl(
+  place: Pick<Place, 'name' | 'category'>,
+  size = { w: 1400, h: 1050 },
+  extraKeyword?: string
+) {
   const base = `https://source.unsplash.com/${size.w}x${size.h}/?`;
-  const query = normalizeQuery(`${place.name} jaipur ${categoryHint(place.category)}`);
+  const query = normalizeQuery(
+    `${place.name} jaipur ${categoryHint(place.category)}${extraKeyword ? ` ${extraKeyword}` : ''}`
+  );
   return `${base}${encodeURIComponent(query)}`;
 }

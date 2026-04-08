@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import type { CategoryDefinition } from '@/types/wanderly';
 import { Wanderly } from '@/constants/wanderly-theme';
+import type { CategoryDefinition } from '@/types/wanderly';
+import { useEffect, useMemo, useRef } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 function ChipIcon({ id, active }: { id: CategoryDefinition['id']; active: boolean }) {
   const stroke = active ? 'rgba(255,255,255,0.95)' : 'rgba(26,16,8,0.90)';
