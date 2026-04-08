@@ -1,26 +1,28 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FlashList } from '@shopify/flash-list';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { FlashList } from '@shopify/flash-list';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 
-import { PLACES, CATEGORIES } from '@/data/mock-data';
-import type { Place, PlaceCategory } from '@/types/wanderly';
-import { Wanderly } from '@/constants/wanderly-theme';
-import { usePlanStore } from '@/store/plan-store';
-import { SearchBar } from '@/components/wanderly/search-bar';
+import { SheetBackdrop } from '@/components/wanderly/bottom-sheet-backdrop';
 import { CategoryChips } from '@/components/wanderly/category-chips';
 import { PlaceCard } from '@/components/wanderly/place-card';
 import { PlanCountBadge } from '@/components/wanderly/plan-count-badge';
 import { PrimaryButton } from '@/components/wanderly/primary-button';
+import { SearchBar } from '@/components/wanderly/search-bar';
 import { TagChip } from '@/components/wanderly/tag-chip';
-import { SheetBackdrop } from '@/components/wanderly/bottom-sheet-backdrop';
+import { Wanderly } from '@/constants/wanderly-theme';
+import { CATEGORIES, PLACES } from '@/data/mock-data';
 import { categoryLabel, formatDuration } from '@/lib/format';
 import { localDestinationForId } from '@/lib/place-assets';
+import { unsplashPlaceImageUrl } from '@/lib/place-image';
+import { usePlanStore } from '@/store/plan-store';
+import type { Place, PlaceCategory } from '@/types/wanderly';
+import { JaliPattern } from '@/components/wanderly/jali-pattern';
 
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
@@ -69,19 +71,24 @@ export default function ExploreScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}> 
       <View style={styles.header}>
-        <Image
-          source={require('@/assets/images/bg_2.png')}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-        />
         <LinearGradient
-          colors={['rgba(255,255,255,0.92)', 'rgba(255,255,255,0.68)', 'rgba(255,255,255,0)']}
+          colors={[Wanderly.colors.ink, Wanderly.colors.deepRose, Wanderly.colors.primary]}
+          locations={[0, 0.62, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <JaliPattern opacity={0.08} />
+        </View>
+        <LinearGradient
+          colors={['rgba(251,247,242,0.06)', 'rgba(251,247,242,0.66)', Wanderly.colors.warmWhite]}
+          locations={[0, 0.62, 1]}
           style={StyleSheet.absoluteFill}
         />
 
         <View style={styles.headerTopRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.city}>Jaipur</Text>
+            <Text style={styles.cityHi}>जयपुर</Text>
             <Text style={styles.subtitle}>Build your perfect day, stop by stop.</Text>
           </View>
 
@@ -100,7 +107,7 @@ export default function ExploreScreen() {
 
       <View style={styles.resultsHeader}>
         <Text style={styles.resultsTitle}>Places</Text>
-        <Text style={styles.resultsMeta}>{filtered.length} nearby picks</Text>
+        <Text style={styles.resultsMeta}>{filtered.length} places found</Text>
       </View>
 
       <FlashList
@@ -127,7 +134,7 @@ export default function ExploreScreen() {
         {selected ? (
           <View style={styles.sheet}>
             <Image
-              source={{ uri: selected.image_url }}
+              source={{ uri: unsplashPlaceImageUrl(selected) }}
               placeholder={localDestinationForId(selected.id)}
               transition={200}
               style={styles.sheetHero}
@@ -185,14 +192,14 @@ function Fact({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Wanderly.colors.surface2,
+    backgroundColor: Wanderly.colors.warmWhite,
   },
   header: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Wanderly.colors.border,
+    borderBottomColor: 'rgba(26,16,8,0.08)',
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -200,17 +207,23 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   city: {
-    fontSize: 30,
-    fontWeight: '900',
-    color: Wanderly.colors.ink,
-    letterSpacing: -0.6,
+    fontSize: 44,
+    color: Wanderly.colors.warmWhite,
+    letterSpacing: -0.8,
+    fontFamily: Wanderly.fonts.displayItalic,
+    lineHeight: 50,
+  },
+  cityHi: {
+    marginTop: 2,
+    fontSize: 16,
+    color: 'rgba(196,146,42,0.95)',
+    fontFamily: Wanderly.fonts.devanagari,
   },
   subtitle: {
     marginTop: 4,
     fontSize: 13,
-    fontWeight: '600',
-    color: Wanderly.colors.ink,
-    opacity: 0.62,
+    color: 'rgba(251,247,242,0.82)',
+    fontFamily: Wanderly.fonts.ui,
   },
   controls: {
     marginTop: 14,
@@ -229,15 +242,19 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: Wanderly.colors.ink,
     letterSpacing: -0.2,
+    fontFamily: Wanderly.fonts.uiBold,
   },
   resultsMeta: {
     fontSize: 12,
     fontWeight: '700',
-    color: Wanderly.colors.muted,
+    color: Wanderly.colors.mutedText,
+    fontFamily: Wanderly.fonts.ui,
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingBottom: 28,
+    paddingTop: 6,
+    gap: 14,
   },
   sheet: {
     flex: 1,
@@ -256,16 +273,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   sheetTitle: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 28,
     color: Wanderly.colors.ink,
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    fontFamily: Wanderly.fonts.displayItalic,
   },
   sheetSub: {
     marginTop: 4,
     fontSize: 13,
-    color: Wanderly.colors.muted,
-    fontWeight: '600',
+    color: Wanderly.colors.mutedText,
+    fontFamily: Wanderly.fonts.ui,
   },
   factsRow: {
     flexDirection: 'row',
@@ -283,15 +300,17 @@ const styles = StyleSheet.create({
   factLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: Wanderly.colors.muted,
+    color: Wanderly.colors.mutedText,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+    fontFamily: Wanderly.fonts.uiBold,
   },
   factValue: {
     fontSize: 12,
     fontWeight: '700',
     color: Wanderly.colors.ink,
     opacity: 0.9,
+    fontFamily: Wanderly.fonts.ui,
   },
   tagsRow: {
     flexDirection: 'row',
@@ -304,5 +323,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: Wanderly.colors.ink,
     opacity: 0.78,
+    fontFamily: Wanderly.fonts.uiRegular,
   },
 });

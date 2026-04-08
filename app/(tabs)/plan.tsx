@@ -1,21 +1,21 @@
-import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
-import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Wanderly } from '@/constants/wanderly-theme';
-import { usePlanStore } from '@/store/plan-store';
-import { placesById } from '@/data/mock-data';
-import { buildTimeline, formatTime } from '@/lib/time';
-import { categoryLabel, formatDuration } from '@/lib/format';
-import { localDestinationForId } from '@/lib/place-assets';
 import { PrimaryButton } from '@/components/wanderly/primary-button';
 import { UndoToast } from '@/components/wanderly/toast';
+import { Wanderly } from '@/constants/wanderly-theme';
+import { placesById } from '@/data/mock-data';
+import { categoryLabel, formatDuration } from '@/lib/format';
+import { localDestinationForId } from '@/lib/place-assets';
+import { buildTimeline, formatTime } from '@/lib/time';
+import { usePlanStore } from '@/store/plan-store';
 
 export default function PlanScreen() {
   const insets = useSafeAreaInsets();

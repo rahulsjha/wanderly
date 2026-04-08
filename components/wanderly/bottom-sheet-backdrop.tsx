@@ -1,4 +1,3 @@
-import React from 'react';
 import { BottomSheetBackdrop, type BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
 export function SheetBackdrop(props: BottomSheetBackdropProps) {
