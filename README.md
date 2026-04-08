@@ -24,6 +24,17 @@ See: `docs/design.md`
 
 It maps the provided UI kit screenshots in `assets/screens/` and the images in `assets/images/` to each required Wanderly screen, with component and interaction guidance.
 
+## Architecture
+
+See: `docs/architecture.md`
+
+Highlights:
+- Mock data is loaded locally from `data/mock_data.json`.
+- Zustand stores the plan as an ordered `placeIds: string[]` (simple, predictable, fast).
+- Expo Router provides navigation (tabs + summary modal) and integrates with React Navigation.
+- Explore uses FlashList for smooth scrolling; Place Detail is a bottom sheet overlay.
+- My Plan uses drag-and-drop reorder and derives the timeline from pure time utilities.
+
 ## Tech notes
 
 - Framework: Expo + Expo Router
