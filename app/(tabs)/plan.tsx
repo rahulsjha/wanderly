@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
 import { Wanderly } from '@/constants/wanderly-theme';
 import { usePlanStore } from '@/store/plan-store';
@@ -97,12 +98,13 @@ export default function PlanScreen() {
         keyExtractor={(id) => id}
         ListHeaderComponent={header}
         contentContainerStyle={{ paddingBottom: 70 }}
+        activationDistance={12}
         onDragBegin={async () => {
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         }}
         onDragEnd={async ({ data }) => {
           reorder(data);
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }}
         renderItem={(params) => (
           <TimelineRow
@@ -163,8 +165,14 @@ function TimelineRow({
   const place = placesById[item];
   const row = timeline[index];
 
+  const activeStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: withSpring(isActive ? 1.04 : 1, { damping: 16, stiffness: 240 }) }],
+    };
+  }, [isActive]);
+
   return (
-    <View style={[styles.rowWrap, isActive && styles.rowActive]}>
+    <Animated.View style={[styles.rowWrap, activeStyle, isActive && styles.rowActive]}>
       {row?.travelGapMinBefore ? (
         <View style={styles.travelGap}>
           <View style={styles.travelLine} />
@@ -198,13 +206,15 @@ function TimelineRow({
                 </Text>
 
                 <View style={styles.actions}>
-                  <Ionicons
-                    name="reorder-three"
-                    size={22}
-                    color={Wanderly.colors.muted}
-                    onPressIn={drag}
+                  <Pressable
+                    onLongPress={drag}
+                    delayLongPress={120}
+                    hitSlop={10}
+                    accessibilityRole="button"
                     accessibilityLabel="Drag to reorder"
-                  />
+                  >
+                    <Ionicons name="reorder-three" size={22} color={Wanderly.colors.muted} />
+                  </Pressable>
                   <Ionicons
                     name="close"
                     size={20}
@@ -223,7 +233,7 @@ function TimelineRow({
           </View>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -330,8 +340,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   rowActive: {
-    opacity: 0.96,
-    transform: [{ scale: 0.99 }],
+    zIndex: 20,
+    elevation: 14,
+    shadowColor: 'rgba(0,0,0,1)',
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
   },
   travelGap: {
     flexDirection: 'row',

@@ -106,7 +106,6 @@ export default function ExploreScreen() {
       <FlashList
         data={filtered}
         keyExtractor={(p) => p.id}
-        estimatedItemSize={128}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
           <PlaceCard
