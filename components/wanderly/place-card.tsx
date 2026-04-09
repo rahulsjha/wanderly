@@ -5,8 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useRef, useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export function PlaceCard({
   place,
@@ -21,10 +22,40 @@ export function PlaceCard({
   onToggle: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
+  const [imageLoading, setImageLoading] = useState(true);
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0,
+          duration: 700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+
+    return () => loop.stop();
+  }, [pulse]);
+
   const onToggleWithDelight = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onToggle();
   };
+
+  const pulseOpacity = pulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.35, 0.72],
+  });
 
   return (
     <View style={[styles.shadowShell, style]}>
@@ -39,7 +70,18 @@ export function PlaceCard({
           transition={220}
           contentFit="cover"
           style={{ width: '100%', height: '100%', position: 'absolute' }}
+          onLoadStart={() => setImageLoading(true)}
+          onLoadEnd={() => setImageLoading(false)}
         />
+
+        {imageLoading ? (
+          <Animated.View style={[styles.loadingOverlay, { opacity: pulseOpacity }]}>
+            <View style={styles.loadingChip}>
+              <Ionicons name="hourglass-outline" size={14} color="rgba(255,255,255,0.95)" />
+              <Text style={styles.loadingText}>Loading</Text>
+            </View>
+          </Animated.View>
+        ) : null}
 
         <LinearGradient
           colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.88)']}
@@ -110,6 +152,30 @@ const styles = StyleSheet.create({
   cardAdded: {
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.16)',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(22,22,24,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 4,
+  },
+  loadingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+  loadingText: {
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: Wanderly.fonts.ui,
   },
   bottomGradient: {
     position: 'absolute',

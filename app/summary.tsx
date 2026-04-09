@@ -459,6 +459,7 @@ export default function SummaryScreen() {
         actionLabel="Undo"
         onAction={undoRemove}
         onDismiss={clearUndo}
+        bottomOffset={insets.bottom + 86}
       />
     </View>
   );

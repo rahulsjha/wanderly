@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-    interpolate,
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { Wanderly } from '@/constants/wanderly-theme';
@@ -17,6 +17,7 @@ export function UndoToast({
   onAction,
   onDismiss,
   durationMs = 4200,
+  bottomOffset = 18,
 }: {
   visible: boolean;
   message: string;
@@ -24,6 +25,7 @@ export function UndoToast({
   onAction: () => void;
   onDismiss: () => void;
   durationMs?: number;
+  bottomOffset?: number;
 }) {
   const t = useSharedValue(0);
   const isMounted = useRef(false);
@@ -60,7 +62,7 @@ export function UndoToast({
   if (!visible) return null;
 
   return (
-    <Animated.View style={[styles.wrap, wrapStyle]}>
+    <Animated.View style={[styles.wrap, { bottom: bottomOffset }, wrapStyle]}>
       <View style={styles.card}>
         <Text style={styles.msg}>{message}</Text>
         <Pressable onPress={onAction} style={styles.action} accessibilityRole="button">
@@ -76,7 +78,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 18,
+    zIndex: 9999,
+    elevation: 24,
   },
   card: {
     backgroundColor: Wanderly.colors.ink,

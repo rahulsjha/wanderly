@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dimensions, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Dimensions, Easing, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryChips } from '@/components/wanderly/category-chips';
@@ -34,6 +34,8 @@ export default function ExploreScreen() {
   const [sort, setSort] = useState<SortOption>('rating');
   const [isLoading, setIsLoading] = useState(true);
   const [previewPlace, setPreviewPlace] = useState<Place | null>(null);
+  const [previewImageLoading, setPreviewImageLoading] = useState(false);
+  const previewPulse = useRef(new Animated.Value(0)).current;
 
   const planIds = usePlanStore((s) => s.placeIds);
   const add = usePlanStore((s) => s.add);
@@ -49,6 +51,36 @@ export default function ExploreScreen() {
     const t = setTimeout(() => setDebouncedQuery(query), 220);
     return () => clearTimeout(t);
   }, [query]);
+
+  useEffect(() => {
+    if (!previewPlace) {
+      setPreviewImageLoading(false);
+      return;
+    }
+    setPreviewImageLoading(true);
+  }, [previewPlace]);
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(previewPulse, {
+          toValue: 1,
+          duration: 700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(previewPulse, {
+          toValue: 0,
+          duration: 700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    loop.start();
+    return () => loop.stop();
+  }, [previewPulse]);
 
   const tagsForCategory = useMemo(() => {
     const set = new Set<string>();
@@ -90,6 +122,11 @@ export default function ExploreScreen() {
     await Haptics.selectionAsync();
     setPreviewPlace(null);
   }, []);
+
+  const previewLoaderOpacity = previewPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.34, 0.7],
+  });
 
   const togglePlan = useCallback(
     async (place: Place) => {
@@ -229,7 +266,21 @@ export default function ExploreScreen() {
           {previewPlace ? (
             <View style={[styles.previewCard, { paddingBottom: 18 + insets.bottom }]}> 
               <View style={styles.previewHero}>
-                <Image source={{ uri: previewPlace.image_url }} contentFit="cover" style={styles.previewHeroImage} />
+                <Image
+                  source={{ uri: previewPlace.image_url }}
+                  contentFit="cover"
+                  style={styles.previewHeroImage}
+                  onLoadStart={() => setPreviewImageLoading(true)}
+                  onLoadEnd={() => setPreviewImageLoading(false)}
+                />
+                {previewImageLoading ? (
+                  <Animated.View style={[styles.previewImageLoader, { opacity: previewLoaderOpacity }]}>
+                    <View style={styles.previewImageLoaderChip}>
+                      <Ionicons name="hourglass-outline" size={13} color="rgba(255,255,255,0.95)" />
+                      <Text style={styles.previewImageLoaderText}>Loading preview</Text>
+                    </View>
+                  </Animated.View>
+                ) : null}
                 <Pressable style={styles.previewClose} onPress={closePreview} accessibilityRole="button">
                   <Ionicons name="close" size={18} color={Wanderly.colors.text} />
                 </Pressable>
@@ -239,18 +290,18 @@ export default function ExploreScreen() {
                 <Text style={styles.previewCategory}>{previewPlace.category.toUpperCase()}</Text>
                 <Text style={styles.previewTitle}>{previewPlace.name}</Text>
 
-                <View style={styles.previewMetaRow}>
-                  <View style={styles.previewMetaPill}>
-                    <Ionicons name="star" size={14} color={Wanderly.colors.text} />
-                    <Text style={styles.previewMetaText}>{previewPlace.rating.toFixed(1)}</Text>
+                <View style={styles.previewInfoGrid}>
+                  <View style={[styles.previewInfoCard, styles.previewInfoCardWide]}>
+                    <Text style={styles.previewInfoLabel}>Opening hours</Text>
+                    <Text style={styles.previewInfoValue}>{previewPlace.opening_hours}</Text>
                   </View>
-                  <View style={styles.previewMetaPill}>
-                    <Ionicons name="navigate" size={14} color={Wanderly.colors.text} />
-                    <Text style={styles.previewMetaText}>{previewPlace.distance_km.toFixed(1)} km</Text>
+                  <View style={styles.previewInfoCard}>
+                    <Text style={styles.previewInfoLabel}>Price level</Text>
+                    <Text style={styles.previewInfoValue}>{previewPlace.price_level}</Text>
                   </View>
-                  <View style={styles.previewMetaPill}>
-                    <Ionicons name="time" size={14} color={Wanderly.colors.text} />
-                    <Text style={styles.previewMetaText}>{previewPlace.estimated_duration_min} min</Text>
+                  <View style={styles.previewInfoCard}>
+                    <Text style={styles.previewInfoLabel}>Duration</Text>
+                    <Text style={styles.previewInfoValue}>{previewPlace.estimated_duration_min} min</Text>
                   </View>
                 </View>
 
@@ -467,6 +518,29 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  previewImageLoader: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.38)',
+  },
+  previewImageLoaderChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+  previewImageLoaderText: {
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: Wanderly.fonts.ui,
+  },
   previewClose: {
     position: 'absolute',
     top: 14,
@@ -495,25 +569,35 @@ const styles = StyleSheet.create({
     color: Wanderly.colors.text,
     fontFamily: Wanderly.fonts.displayItalic,
   },
-  previewMetaRow: {
+  previewInfoGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
     flexWrap: 'wrap',
+    gap: 8,
   },
-  previewMetaPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
+  previewInfoCard: {
+    flex: 1,
+    minWidth: 120,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Wanderly.colors.border,
     backgroundColor: Wanderly.colors.surface2,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 8,
+    gap: 2,
   },
-  previewMetaText: {
-    fontSize: 12,
+  previewInfoCardWide: {
+    minWidth: '100%',
+  },
+  previewInfoLabel: {
+    fontSize: 11,
+    color: Wanderly.colors.textMuted,
+    fontFamily: Wanderly.fonts.ui,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  previewInfoValue: {
+    fontSize: 13,
     color: Wanderly.colors.text,
     fontFamily: Wanderly.fonts.ui,
     fontWeight: '700',

@@ -103,11 +103,36 @@ export default function FinalizeScreen() {
         </View>
 
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>No journey to finalize</Text>
-          <Text style={styles.emptyText}>Add places in My Journey first.</Text>
-          <Pressable style={styles.primaryButton} onPress={() => router.push('/summary')}>
-            <Text style={styles.primaryButtonText}>Go to My Journey</Text>
-          </Pressable>
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="map-outline" size={24} color={Wanderly.colors.text} />
+            </View>
+
+            <Text style={styles.emptyTitle}>No journey to finalize yet</Text>
+            <Text style={styles.emptyText}>
+              Build your itinerary in My Plan and come back to see route map, timeline, and share-ready summary.
+            </Text>
+
+            <View style={styles.emptyFeatureRow}>
+              <View style={styles.emptyFeaturePill}>
+                <Ionicons name="navigate-outline" size={13} color={Wanderly.colors.textMuted} />
+                <Text style={styles.emptyFeatureText}>Route map</Text>
+              </View>
+              <View style={styles.emptyFeaturePill}>
+                <Ionicons name="time-outline" size={13} color={Wanderly.colors.textMuted} />
+                <Text style={styles.emptyFeatureText}>Timeline</Text>
+              </View>
+              <View style={styles.emptyFeaturePill}>
+                <Ionicons name="share-social-outline" size={13} color={Wanderly.colors.textMuted} />
+                <Text style={styles.emptyFeatureText}>Share</Text>
+              </View>
+            </View>
+
+            <Pressable style={styles.emptyCtaButton} onPress={() => router.push('/summary')}>
+              <Ionicons name="list-outline" size={16} color="white" />
+              <Text style={styles.primaryButtonText}>Go to My Plan</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     );
@@ -420,19 +445,81 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  emptyCard: {
+    width: '100%',
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+    backgroundColor: Wanderly.colors.surface,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
     gap: 10,
-    paddingHorizontal: 24,
+  },
+  emptyIconWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Wanderly.colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     color: Wanderly.colors.text,
     fontFamily: Wanderly.fonts.ui,
+    textAlign: 'center',
   },
   emptyText: {
     fontSize: 14,
     color: Wanderly.colors.textMuted,
     textAlign: 'center',
     fontFamily: Wanderly.fonts.ui,
+    lineHeight: 20,
+  },
+  emptyFeatureRow: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  emptyFeaturePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    backgroundColor: Wanderly.colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  emptyFeatureText: {
+    fontSize: 12,
+    color: Wanderly.colors.textMuted,
+    fontWeight: '700',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  emptyCtaButton: {
+    marginTop: 8,
+    borderRadius: 999,
+    backgroundColor: Wanderly.colors.text,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 });

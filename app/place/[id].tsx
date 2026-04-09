@@ -318,9 +318,26 @@ function UpcomingPlaceCard({
   place: (typeof PLACES)[number];
   onPress: () => void;
 }) {
+  const [imageLoading, setImageLoading] = useState(true);
+
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.tourCard, pressed && { opacity: 0.98 }]}>
-      <Image source={{ uri: place.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={180} />
+      <Image
+        source={{ uri: place.image_url }}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        transition={180}
+        onLoadStart={() => setImageLoading(true)}
+        onLoadEnd={() => setImageLoading(false)}
+      />
+      {imageLoading ? (
+        <View style={styles.tourLoaderOverlay}>
+          <View style={styles.tourLoaderChip}>
+            <Ionicons name="hourglass-outline" size={12} color="rgba(255,255,255,0.96)" />
+            <Text style={styles.tourLoaderText}>Loading</Text>
+          </View>
+        </View>
+      ) : null}
       <View style={styles.tourContent}>
         <Text numberOfLines={1} style={styles.tourTitle}>
           {place.name}
@@ -634,6 +651,28 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: 'hidden',
     backgroundColor: Wanderly.colors.surface2,
+  },
+  tourLoaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.34)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tourLoaderChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+  tourLoaderText: {
+    color: 'rgba(255,255,255,0.96)',
+    fontSize: 11,
+    fontFamily: 'PPMori-SemiBold',
   },
   tourGradient: {
     position: 'absolute',
