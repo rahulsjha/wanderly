@@ -1,7 +1,6 @@
 import { Tabs } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Dimensions } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -16,10 +15,13 @@ function TabIcon({
   focused: boolean;
 }) {
   return (
-    <View style={styles.tabIconWrap}>
-      <View style={[styles.iconCircle, focused ? styles.iconCircleOn : styles.iconCircleOff]}>
-        <IconSymbol size={21} name={name} color={focused ? '#0a0a0a' : 'rgba(255,255,255,0.86)'} />
-      </View>
+    <View style={[styles.iconContainer, focused && styles.iconContainerFocused]}>
+      <IconSymbol 
+        size={22} 
+        name={name} 
+        color={focused ? '#000' : '#E5E7EB'} 
+        weight={focused ? 'bold' : 'regular'}
+      />
     </View>
   );
 }
@@ -27,46 +29,47 @@ function TabIcon({
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const bottomOffset = Math.max(insets.bottom, 20);
+  const screenWidth = Dimensions.get('window').width;
+  const tabBarWidth = 200;
+  const translateX = (screenWidth - tabBarWidth) / 2 - screenWidth / 2;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#0a0a0a',
-        tabBarInactiveTintColor: 'rgba(255,255,255,0.86)',
+        tabBarActiveTintColor: '#1C1C1E',
+        tabBarInactiveTintColor: '#9CA3AF',
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarShowLabel: false,
         tabBarItemStyle: {
           justifyContent: 'center',
           alignItems: 'center',
-          flex: 1,
-          height: 74,
-          margin: 0,
-          padding: 0,
+          flex: 0,
+          width: 56,
+          height: 64,
+          paddingHorizontal: 0,
+          marginHorizontal: -2,
         },
         tabBarStyle: {
           position: 'absolute',
-          left: '15%',
-          right: '15%',
+          left: '50%',
           bottom: bottomOffset,
-          height: 74,
-          paddingTop: 0,
-          paddingBottom: 0,
-          paddingHorizontal: 0,
+          height: 64,
+          width: tabBarWidth,
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'row',
           overflow: 'hidden',
-          backgroundColor: 'rgba(17,17,17,0.98)',
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: 'rgba(255,255,255,0.10)',
+          backgroundColor: 'rgba(28, 28, 52, 0.9)',
+          borderWidth: 0,
           borderTopWidth: 0,
           borderRadius: 999,
-          shadowColor: 'rgba(0,0,0,0.45)',
-          shadowOpacity: 0.22,
-          shadowRadius: 18,
-          shadowOffset: { width: 0, height: 12 },
-          elevation: 14,
+          shadowColor: '#000',
+          shadowOpacity: 0.1,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 3,
+          transform: [{ translateX: tabBarWidth / -2 }],
         },
       }}>
       <Tabs.Screen
@@ -103,22 +106,17 @@ export default function TabLayout() {
   );
 }
 
+
 const styles = StyleSheet.create({
-  tabIconWrap: {
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  iconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconCircleOn: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-  },
-  iconCircleOff: {
     backgroundColor: 'transparent',
+  },
+  iconContainerFocused: {
+    backgroundColor: '#fff',
   },
 });

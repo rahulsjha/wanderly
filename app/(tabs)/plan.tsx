@@ -1,15 +1,15 @@
-import React, { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ArchIllustration } from '@/components/wanderly/empty-illustrations';
 import { Wanderly } from '@/constants/wanderly-theme';
 import { placesById } from '@/data/mock-data';
-import { formatDuration, categoryLabel } from '@/lib/format';
+import { categoryLabel, formatDuration } from '@/lib/format';
 import { buildTimeline, formatTime, TimelineRow } from '@/lib/time';
 import { usePlanStore } from '@/store/plan-store';
 

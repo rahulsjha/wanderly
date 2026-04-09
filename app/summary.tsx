@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { TagChip } from '@/components/wanderly/tag-chip';
 import { Wanderly } from '@/constants/wanderly-theme';
 import { placesById } from '@/data/mock-data';
 import { categoryLabel, formatDuration, priceScore, totalCostLabel } from '@/lib/format';

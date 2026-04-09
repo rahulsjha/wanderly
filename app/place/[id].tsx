@@ -17,7 +17,6 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const HERO_HEIGHT = 420;
 
@@ -132,6 +131,14 @@ export default function PlaceDetailScreen() {
               </View>
             </View>
 
+            <View style={styles.tagsRow}>
+              {place.tags.map((tag) => (
+                <View key={tag} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+
             <View style={styles.descriptionContainer}>
               <Text numberOfLines={expanded ? undefined : 3} style={styles.desc}>
                 {place.description}
@@ -169,22 +176,28 @@ export default function PlaceDetailScreen() {
             renderItem={(info) => (
               <TourCard
                 item={info.item}
-                liked={!!likedTourIds[info.item.id]}
-                onToggleLiked={async () => {
-                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setLikedTourIds((s) => ({ ...s, [info.item.id]: !s[info.item.id] }));
-                }}
                 onPress={async () => {
                   await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: `/tour/${info.item.id}`,
+                    params: {
+                      tour_title: info.item.title,
+                      tour_days: info.item.days.toString(),
+                      tour_price: info.item.priceFromUsd.toString(),
+                      tour_rating: info.item.rating.toString(),
+                      tour_reviews: info.item.reviews.toString(),
+                      tour_imageUrl: info.item.imageUrl,
+                    },
+                  });
                 }}
               />
             )}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 14, paddingBottom: 22 }}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingBottom: 22 }}
           />
         </View>
       </ScrollView>
 
-      <View style={[styles.floatingHint, { top: insets.top + 8 }]}> 
+      <View style={[styles.floatingHint, { top: insets.top + 8 }]}>
         <Text style={styles.hintText}>{categoryLabel(place.category)}</Text>
       </View>
     </View>
@@ -214,43 +227,20 @@ function CircleIconButton({
 
 function TourCard({
   item,
-  liked,
-  onToggleLiked,
   onPress,
 }: {
   item: Tour;
-  liked: boolean;
-  onToggleLiked: () => void;
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.tourCard, pressed && { opacity: 0.98 }]}> 
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.tourCard, pressed && { opacity: 0.98 }]}>
       <Image source={{ uri: item.imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={180} />
-      <LinearGradient
-        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.1)', 'rgba(0,0,0,0.6)']}
-        locations={[0, 0.5, 1]}
-        style={styles.tourGradient}
-      />
-      <View style={styles.tourTopRow}>
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation();
-            onToggleLiked();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={liked ? 'Remove tour from favorites' : 'Favorite this tour'}
-          style={styles.tourHeart}
-        >
-          <Ionicons name={liked ? 'heart' : 'heart'} size={22} color={'#FFFFFF'} />
-        </Pressable>
-      </View>
-
       <View style={styles.tourContent}>
         <Text numberOfLines={1} style={styles.tourTitle}>
           {item.title}
         </Text>
         <Text style={styles.tourMeta}>
-          {item.days} days  •  from ${item.priceFromUsd}/person
+          {item.days} days • from ${item.priceFromUsd}/person
         </Text>
         <View style={styles.tourBottomRow}>
           <View style={styles.tourRatingRow}>
@@ -319,7 +309,7 @@ function mulberry32(seed: number) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F2F3F5',
+    backgroundColor: Wanderly.colors.background,
   },
   hero: {
     height: HERO_HEIGHT,
@@ -355,14 +345,13 @@ const styles = StyleSheet.create({
   hintText: {
     marginTop: 52,
     fontSize: 12,
-    fontWeight: '800',
+    fontFamily: 'PPMori-SemiBold',
     letterSpacing: 0.9,
     textTransform: 'uppercase',
     color: 'rgba(255,255,255,0.88)',
-    fontFamily: Wanderly.fonts.uiBold,
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Wanderly.colors.surface,
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
     overflow: 'visible', // Allow shadow to be visible
@@ -390,9 +379,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 34,
-    fontWeight: '900',
-    color: '#121316',
-    fontFamily: Wanderly.fonts.ui,
+    color: Wanderly.colors.text,
+    fontFamily: 'PPMonumentExtended-Regular',
     letterSpacing: -0.7,
   },
   metaRow: {
@@ -419,9 +407,8 @@ const styles = StyleSheet.create({
   },
   countryText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#121316',
-    fontFamily: Wanderly.fonts.ui,
+    color: Wanderly.colors.text,
+    fontFamily: 'PPMori-SemiBold',
   },
   rightMeta: {
     alignItems: 'flex-end',
@@ -440,46 +427,49 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#121316',
-    fontFamily: Wanderly.fonts.ui,
+    color: Wanderly.colors.text,
+    fontFamily: 'PPMori-SemiBold',
   },
   reviewsLink: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#121316',
+    color: Wanderly.colors.ink,
     textDecorationLine: 'underline',
-    fontFamily: Wanderly.fonts.ui,
+    fontSize: 15,
+    fontFamily: 'PPMonumentExtended-Regular',
   },
-  desc: {
-    marginTop: 14,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '600',
-    color: 'rgba(18,19,22,0.74)',
-    fontFamily: Wanderly.fonts.ui,
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  tag: {
+    backgroundColor: Wanderly.colors.sandstone,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
+  },
+  tagText: {
+    color: Wanderly.colors.ink,
+    fontFamily: 'PPMori-Regular',
+    fontSize: 13,
   },
   descriptionContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+  },
+  desc: {
+    fontSize: 16,
+    fontFamily: 'PPMori-Regular',
+    color: Wanderly.colors.text,
+    lineHeight: 24,
   },
   readMore: {
     marginTop: 10,
     fontSize: 14,
-    fontWeight: '800',
-    color: '#121316',
+    color: Wanderly.colors.text,
     textDecorationLine: 'underline',
-    fontFamily: Wanderly.fonts.ui,
+    fontFamily: 'PPMori-SemiBold',
   },
   sectionHead: {
     marginTop: 24,
@@ -489,17 +479,15 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 22,
-    fontWeight: '900',
-    color: '#121316',
-    fontFamily: Wanderly.fonts.ui,
+    color: Wanderly.colors.text,
+    fontFamily: 'PPMonumentExtended-Regular',
     letterSpacing: -0.4,
   },
   seeAll: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#121316',
+    color: Wanderly.colors.text,
     textDecorationLine: 'underline',
-    fontFamily: Wanderly.fonts.ui,
+    fontFamily: 'PPMori-SemiBold',
   },
   tourCard: {
     width: 262,
@@ -507,27 +495,6 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: 'hidden',
     backgroundColor: Wanderly.colors.surface2,
-  },
-  tourTopRow: {
-    position: 'absolute',
-    top: 14,
-    left: 14,
-    right: 14,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    zIndex: 4,
-  },
-  tourHeart: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: 'rgba(0,0,0,0.14)',
-    shadowOpacity: 1,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
   },
   tourGradient: {
     position: 'absolute',
@@ -537,69 +504,61 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   tourContent: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 14,
-    gap: 6,
+    flex: 1,
+    justifyContent: 'flex-end',
+    padding: 12,
   },
   tourTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    fontFamily: Wanderly.fonts.ui,
-    letterSpacing: -0.2,
+    color: 'white',
+    fontSize: 18,
+    fontFamily: 'PPMonumentExtended-Regular',
   },
   tourMeta: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.8)',
-    fontFamily: Wanderly.fonts.ui,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
+    fontFamily: 'PPMori-Regular',
+    marginTop: 4,
   },
   tourBottomRow: {
-    marginTop: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 8,
   },
   tourRatingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   tourRatingText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    fontFamily: Wanderly.fonts.ui,
+    color: 'white',
+    fontSize: 14,
+    fontFamily: 'PPMori-SemiBold',
   },
   tourReviewsText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.7)',
-    fontFamily: Wanderly.fonts.ui,
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    fontFamily: 'PPMori-Regular',
+    marginLeft: 4,
   },
   tourArrow: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#141516',
-    alignItems: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   missingTitle: {
     fontSize: 22,
-    fontWeight: '900',
     color: Wanderly.colors.ink,
-    fontFamily: Wanderly.fonts.ui,
+    fontFamily: 'PPMonumentExtended-Regular',
   },
   missingSub: {
     marginTop: 8,
     fontSize: 14,
-    fontWeight: '700',
     color: Wanderly.colors.mutedText,
-    fontFamily: Wanderly.fonts.ui,
+    fontFamily: 'PPMori-Regular',
   },
   missingBack: {
     marginTop: 16,
@@ -610,14 +569,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Wanderly.colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(0,0,0,0.10)',
   },
   missingBackText: {
     fontSize: 13,
-    fontWeight: '800',
     color: Wanderly.colors.ink,
-    fontFamily: Wanderly.fonts.ui,
+    fontFamily: 'PPMori-SemiBold',
   },
 });
