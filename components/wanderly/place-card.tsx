@@ -77,10 +77,6 @@ export function PlaceCard({
                 <Ionicons name="location-outline" size={14} color="#FFFFFF" />
                 <Text style={styles.metaText}>{place.distance_km} km</Text>
               </View>
-              <View style={styles.metaPill}>
-                <Ionicons name="time-outline" size={14} color="#FFFFFF" />
-                <Text style={styles.metaText}>{place.estimated_duration_min} min</Text>
-              </View>
             </View>
           </View>
         </View>

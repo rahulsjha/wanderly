@@ -1,8 +1,7 @@
 import { Wanderly } from '@/constants/wanderly-theme';
-import { placesById } from '@/data/mock-data';
+import { PLACES, placesById } from '@/data/mock-data';
 import { categoryLabel } from '@/lib/format';
 import { usePlanStore } from '@/store/plan-store';
-import type { Place } from '@/types/wanderly';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
@@ -25,16 +24,6 @@ import { UndoToast } from '@/components/wanderly/toast';
 
 const HERO_HEIGHT = 420;
 
-type Tour = {
-  id: string;
-  title: string;
-  days: number;
-  priceFromUsd: number;
-  rating: number;
-  reviews: number;
-  imageUrl: string;
-};
-
 export default function PlaceDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -43,17 +32,21 @@ export default function PlaceDetailScreen() {
   const place = placesById[placeId];
 
   const isSaved = usePlanStore((s) => (placeId ? s.isInPlan(placeId) : false));
+  const isCheckLater = usePlanStore((s) => (placeId ? s.isCheckLater(placeId) : false));
   const add = usePlanStore((s) => s.add);
   const remove = usePlanStore((s) => s.remove);
+  const toggleCheckLater = usePlanStore((s) => s.toggleCheckLater);
   const saveSheetRef = useRef<BottomSheetModal>(null);
-  const [checkLater, setCheckLater] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  const seed = useMemo(() => hashStringToInt(placeId || 'wanderly'), [placeId]);
   const saveSheetSnapPoints = useMemo(() => ['30%'], []);
-
-  const tours = useMemo(() => buildTours({ place, seed }), [place, seed]);
+  const upcomingPlaces = useMemo(() => {
+    if (!place) return [];
+    const sameCategory = PLACES.filter((p) => p.id !== place.id && p.category === place.category);
+    const others = PLACES.filter((p) => p.id !== place.id && p.category !== place.category);
+    return [...sameCategory, ...others].slice(0, 10);
+  }, [place]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -96,11 +89,8 @@ export default function PlaceDetailScreen() {
 
   const onCheckLaterPress = async () => {
     await Haptics.selectionAsync();
-    setCheckLater((prev) => {
-      const next = !prev;
-      setToastMessage(next ? 'Marked as check later' : 'Removed from check later');
-      return next;
-    });
+    toggleCheckLater(place.id);
+    setToastMessage(isCheckLater ? 'Removed from check later' : 'Marked as check later');
     setToastVisible(true);
     saveSheetRef.current?.dismiss();
   };
@@ -158,10 +148,6 @@ export default function PlaceDetailScreen() {
 
             <View style={styles.metaRow}>
               <View style={styles.countryRow}>
-                <View style={styles.flagCircle}>
-                  <Text style={styles.flagText}>🇮🇳</Text>
-                </View>
-                <Text style={styles.countryText}>India</Text>
               </View>
 
               <View style={styles.rightMeta}>
@@ -198,23 +184,24 @@ export default function PlaceDetailScreen() {
 
             <View style={styles.quickActionsRow}>
               <Pressable onPress={onSharePlacePress} style={styles.quickActionButton} accessibilityRole="button">
-                <Ionicons name="share-social-outline" size={16} color={Wanderly.colors.text} />
+                <Ionicons name="share-social-outline" size={16} color="#000000" />
                 <Text style={styles.quickActionText}>Share</Text>
               </Pressable>
 
               <Pressable onPress={onCheckLaterPress} style={styles.quickActionButton} accessibilityRole="button">
                 <Ionicons
-                  name={checkLater ? 'bookmark' : 'bookmark-outline'}
+                  name={isCheckLater ? 'bookmark' : 'bookmark-outline'}
                   size={16}
-                  color={Wanderly.colors.text}
+                  color="#000000"
                 />
-                <Text style={styles.quickActionText}>{checkLater ? 'Checked later' : 'Check later'}</Text>
+                <Text style={styles.quickActionText}>{isCheckLater ? 'Checked later' : 'Check later'}</Text>
               </Pressable>
             </View>
 
             <View style={styles.tagsRow}>
               {place.tags.map((tag) => (
                 <View key={tag} style={styles.tag}>
+                  <Ionicons name="pricetag-outline" size={12} color="#000000" />
                   <Text style={styles.tagText}>{tag}</Text>
                 </View>
               ))}
@@ -227,13 +214,14 @@ export default function PlaceDetailScreen() {
             </View>
 
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>Upcoming tours</Text>
+              <Text style={styles.sectionTitle}>Upcoming places</Text>
               <Pressable
                 onPress={async () => {
                   await Haptics.selectionAsync();
+                  router.push('/');
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="See all tours"
+                accessibilityLabel="See all places"
               >
                 <Text style={styles.seeAll}>See all</Text>
               </Pressable>
@@ -241,28 +229,17 @@ export default function PlaceDetailScreen() {
           </View>
 
           <FlatList
-            data={tours}
-            keyExtractor={(t) => t.id}
+            data={upcomingPlaces}
+            keyExtractor={(p) => p.id}
             horizontal
             nestedScrollEnabled
             showsHorizontalScrollIndicator={false}
             renderItem={(info) => (
-              <TourCard
-                item={info.item}
+              <UpcomingPlaceCard
+                place={info.item}
                 onPress={async () => {
                   await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push({
-                    pathname: '/tour/[id]',
-                    params: {
-                      id: info.item.id,
-                      tour_title: info.item.title,
-                      tour_days: info.item.days.toString(),
-                      tour_price: info.item.priceFromUsd.toString(),
-                      tour_rating: info.item.rating.toString(),
-                      tour_reviews: info.item.reviews.toString(),
-                      tour_imageUrl: info.item.imageUrl,
-                    },
-                  });
+                  router.push({ pathname: '/place/[id]', params: { id: info.item.id } });
                 }}
               />
             )}
@@ -293,7 +270,7 @@ export default function PlaceDetailScreen() {
           </Pressable>
 
           <Pressable onPress={onCheckLaterPress} style={styles.sheetActionSecondary} accessibilityRole="button">
-            <Text style={styles.sheetActionSecondaryText}>{checkLater ? 'Checked for later ✓' : 'Check later'}</Text>
+            <Text style={styles.sheetActionSecondaryText}>{isCheckLater ? 'Checked for later ✓' : 'Check later'}</Text>
           </Pressable>
 
           <Pressable onPress={onSharePlacePress} style={styles.sheetActionSecondary} accessibilityRole="button">
@@ -334,27 +311,34 @@ function CircleIconButton({
   );
 }
 
-function TourCard({
-  item,
+function UpcomingPlaceCard({
+  place,
   onPress,
 }: {
-  item: Tour;
+  place: (typeof PLACES)[number];
   onPress: () => void;
 }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.tourCard, pressed && { opacity: 0.98 }]}>
-      <Image source={{ uri: item.imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={180} />
+      <Image source={{ uri: place.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={180} />
       <View style={styles.tourContent}>
         <Text numberOfLines={1} style={styles.tourTitle}>
-          {item.title}
+          {place.name}
         </Text>
         <Text style={styles.tourMeta}>
-          {item.days} days • from ${item.priceFromUsd}/person
+          {categoryLabel(place.category)}
+        </Text>
+        <Text numberOfLines={2} style={styles.tourDesc}>
+          {place.description}
         </Text>
         <View style={styles.tourBottomRow}>
           <View style={styles.tourRatingRow}>
-            <Ionicons name="star" size={14} color={'#FFFFFF'} />
-            <Text style={styles.tourRatingText}>{item.rating.toFixed(1)}</Text>
+            <Ionicons name="time-outline" size={14} color={'#FFFFFF'} />
+            <Text style={styles.tourRatingText}>{place.estimated_duration_min} min</Text>
+          </View>
+          <View style={styles.tourRatingRow}>
+            <Ionicons name="navigate-outline" size={14} color={'#FFFFFF'} />
+            <Text style={styles.tourRatingText}>{place.distance_km.toFixed(1)} km</Text>
           </View>
           <View style={styles.tourArrow}>
             <Ionicons name="arrow-forward" size={18} color="white" />
@@ -363,55 +347,6 @@ function TourCard({
       </View>
     </Pressable>
   );
-}
-
-function buildTours({ place, seed }: { place: Place | undefined; seed: number }): Tour[] {
-  const destinationName = place?.name ?? 'Wanderly';
-  const titleBase = destinationName.split(',')[0];
-  const r = mulberry32(seed + 99);
-
-  const pick = (arr: string[]) => arr[Math.floor(r() * arr.length) % arr.length];
-  const adjectives = ['Iconic', 'Hidden Gems', 'Best of', 'Coastal', 'Mountain', 'City Highlights'];
-
-  const out: Tour[] = [];
-  for (let i = 0; i < 3; i++) {
-    const days = Math.floor(4 + r() * 6);
-    const priceFromUsd = Math.floor(220 + r() * 720);
-    const rating = Math.max(4.0, Math.min(5.0, 4.2 + r() * 0.8));
-    const reviews = Math.floor(30 + r() * 260);
-    const title = `${pick(adjectives)} ${titleBase}`.trim();
-    const imageUrl = `https://picsum.photos/seed/${encodeURIComponent(`${seed}-tour-${i}`)}/900/600`;
-
-    out.push({
-      id: `${seed}-tour-${i}`,
-      title,
-      days,
-      priceFromUsd,
-      rating,
-      reviews,
-      imageUrl,
-    });
-  }
-
-  return out;
-}
-
-function hashStringToInt(value: string) {
-  let h = 2166136261;
-  for (let i = 0; i < value.length; i++) {
-    h ^= value.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function mulberry32(seed: number) {
-  return function () {
-    let t = (seed += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 const styles = StyleSheet.create({
@@ -572,9 +507,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: '#111111',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderColor: '#000000',
     shadowColor: 'rgba(0,0,0,0.12)',
     shadowOpacity: 0.35,
     shadowRadius: 10,
@@ -583,7 +518,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 11,
-    color: Wanderly.colors.textMuted,
+    color: 'rgba(255,255,255,0.75)',
     fontFamily: 'PPMori-Regular',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -591,7 +526,7 @@ const styles = StyleSheet.create({
   infoValue: {
     marginTop: 2,
     fontSize: 14,
-    color: Wanderly.colors.text,
+    color: 'white',
     fontFamily: 'PPMori-SemiBold',
   },
   openHoursCard: {
@@ -600,9 +535,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: '#111111',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderColor: '#000000',
     shadowColor: 'rgba(0,0,0,0.12)',
     shadowOpacity: 0.35,
     shadowRadius: 10,
@@ -611,7 +546,7 @@ const styles = StyleSheet.create({
   },
   openHoursLabel: {
     fontSize: 11,
-    color: Wanderly.colors.textMuted,
+    color: 'rgba(255,255,255,0.75)',
     fontFamily: 'PPMori-Regular',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -619,7 +554,7 @@ const styles = StyleSheet.create({
   openHoursValue: {
     marginTop: 2,
     fontSize: 14,
-    color: Wanderly.colors.text,
+    color: 'white',
     fontFamily: 'PPMori-SemiBold',
   },
   quickActionsRow: {
@@ -640,7 +575,7 @@ const styles = StyleSheet.create({
     borderColor: Wanderly.colors.border,
   },
   quickActionText: {
-    color: Wanderly.colors.text,
+    color: '#000000',
     fontSize: 13,
     fontFamily: 'PPMori-SemiBold',
   },
@@ -656,9 +591,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   tagText: {
-    color: Wanderly.colors.ink,
+    color: '#000000',
     fontFamily: 'PPMori-Regular',
     fontSize: 13,
   },
@@ -719,6 +657,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'PPMori-Regular',
     marginTop: 4,
+  },
+  tourDesc: {
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: 'PPMori-Regular',
+    marginTop: 6,
   },
   tourBottomRow: {
     flexDirection: 'row',

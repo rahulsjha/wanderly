@@ -13,9 +13,9 @@ export default function TabLayout() {
         tabBarInactiveTintColor: Wanderly.colors.text,
         tabBarStyle: {
           position: 'absolute',
-          bottom: 30,
-          left: 20,
-          right: 20,
+          bottom: 8,
+          left: 16,
+          right: 16,
           elevation: 0,
           backgroundColor: Wanderly.colors.background,
           borderRadius: 15,
@@ -42,9 +42,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="favorites"
         options={{
-          title: 'Favorites',
+          title: 'Check Later',
           tabBarButton: (props) => <HapticTab {...props} />,
-          tabBarIcon: ({ color }) => <Ionicons size={28} name="heart-outline" color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons size={28} name="bookmark-outline" color={color} />,
         }}
       />
       <Tabs.Screen

@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,19 +12,23 @@ import { usePlanStore } from '@/store/plan-store';
 
 export default function FavoritesScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
-  const savedIds = usePlanStore((s) => s.placeIds);
-  const remove = usePlanStore((s) => s.remove);
+  const checkLaterIds = usePlanStore((s) => s.checkLaterIds);
+  const removeCheckLater = usePlanStore((s) => s.removeCheckLater);
 
-  const saved = useMemo(() => PLACES.filter((p) => savedIds.includes(p.id)), [savedIds]);
+  const checkLaterPlaces = useMemo(
+    () => PLACES.filter((p) => checkLaterIds.includes(p.id)),
+    [checkLaterIds]
+  );
 
-  if (saved.length === 0) {
+  if (checkLaterPlaces.length === 0) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: 120 + insets.bottom }]}>
         <View style={styles.empty}>
           <ArchIllustration />
-          <Text style={styles.emptyTitle}>No saved places yet</Text>
-          <Text style={styles.emptyDesc}>Tap the heart on a place to save it for later.</Text>
+          <Text style={styles.emptyTitle}>No check later places yet</Text>
+          <Text style={styles.emptyDesc}>Tap Check later on a place detail to add it here.</Text>
         </View>
       </View>
     );
@@ -31,25 +37,48 @@ export default function FavoritesScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: 120 + insets.bottom }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Saved</Text>
+        <Text style={styles.title}>Check Later</Text>
       </View>
 
       <View style={styles.list}>
-        {saved.map((p) => (
-          <View key={p.id} style={styles.row}>
+        {checkLaterPlaces.map((p) => (
+          <Pressable
+            key={p.id}
+            onPress={async () => {
+              await Haptics.selectionAsync();
+              router.push({ pathname: '/place/[id]', params: { id: p.id } });
+            }}
+            style={styles.row}
+          >
             <View style={{ flex: 1 }}>
               <Text style={styles.rowTitle} numberOfLines={1}>
                 {p.name}
               </Text>
               <Text style={styles.rowSub} numberOfLines={1}>
-                {p.tags.slice(0, 3).join(' · ')}
+                {p.description}
               </Text>
+              <View style={styles.rowMeta}>
+                <View style={styles.rowMetaItem}>
+                  <Ionicons name="time-outline" size={12} color={Wanderly.colors.text} />
+                  <Text style={styles.rowMetaText}>{p.estimated_duration_min} min</Text>
+                </View>
+                <View style={styles.rowMetaItem}>
+                  <Ionicons name="navigate-outline" size={12} color={Wanderly.colors.text} />
+                  <Text style={styles.rowMetaText}>{p.distance_km.toFixed(1)} km</Text>
+                </View>
+              </View>
             </View>
 
-            <Pressable onPress={() => remove(p.id)} style={styles.rowAction}>
-              <Ionicons name="heart" size={18} color="white" />
+            <Pressable
+              onPress={(event) => {
+                event.stopPropagation();
+                removeCheckLater(p.id);
+              }}
+              style={styles.rowAction}
+            >
+              <Ionicons name="bookmark" size={18} color="white" />
             </Pressable>
-          </View>
+          </Pressable>
         ))}
       </View>
     </View>
@@ -94,9 +123,26 @@ const styles = StyleSheet.create({
   rowSub: {
     marginTop: 3,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Wanderly.colors.textMuted,
     fontFamily: Wanderly.fonts.ui,
+  },
+  rowMeta: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  rowMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  rowMetaText: {
+    fontSize: 11,
+    color: Wanderly.colors.text,
+    fontFamily: Wanderly.fonts.ui,
+    fontWeight: '600',
   },
   rowAction: {
     width: 36,

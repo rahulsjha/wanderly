@@ -2,11 +2,15 @@ import { create } from 'zustand';
 
 type PlanState = {
   placeIds: string[];
+  checkLaterIds: string[];
   lastRemoved?: { id: string; index: number };
 
   isInPlan: (placeId: string) => boolean;
+  isCheckLater: (placeId: string) => boolean;
   add: (placeId: string) => void;
   remove: (placeId: string) => void;
+  toggleCheckLater: (placeId: string) => void;
+  removeCheckLater: (placeId: string) => void;
   removeAt: (index: number) => void;
   reorder: (next: string[]) => void;
   undoRemove: () => void;
@@ -15,8 +19,10 @@ type PlanState = {
 
 export const usePlanStore = create<PlanState>((set, get) => ({
   placeIds: [],
+  checkLaterIds: [],
 
   isInPlan: (placeId) => get().placeIds.includes(placeId),
+  isCheckLater: (placeId) => get().checkLaterIds.includes(placeId),
 
   add: (placeId) =>
     set((state) => {
@@ -31,6 +37,27 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       const next = state.placeIds.filter((id) => id !== placeId);
       return { ...state, placeIds: next, lastRemoved: { id: placeId, index } };
     }),
+
+  toggleCheckLater: (placeId) =>
+    set((state) => {
+      if (state.checkLaterIds.includes(placeId)) {
+        return {
+          ...state,
+          checkLaterIds: state.checkLaterIds.filter((id) => id !== placeId),
+        };
+      }
+
+      return {
+        ...state,
+        checkLaterIds: [...state.checkLaterIds, placeId],
+      };
+    }),
+
+  removeCheckLater: (placeId) =>
+    set((state) => ({
+      ...state,
+      checkLaterIds: state.checkLaterIds.filter((id) => id !== placeId),
+    })),
 
   removeAt: (index) =>
     set((state) => {
