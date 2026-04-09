@@ -99,7 +99,7 @@ export default function SummaryScreen() {
   const startTime = usePlanStore((s) => s.journeyStartTime);
   const setJourneyStartTime = usePlanStore((s) => s.setJourneyStartTime);
 
-  const [tab, setTab] = useState<TabKey>('schedule');
+  const [tab] = useState<TabKey>('schedule');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [startTimeInput, setStartTimeInput] = useState(() => formatTime(startTime));
   const [startTimeError, setStartTimeError] = useState<string | null>(null);
@@ -578,22 +578,6 @@ function Metric({
       <Text style={styles.metricLabel}>{label}</Text>
       <Text style={styles.metricValue}>{value}</Text>
     </View>
-  );
-}
-
-function TabPill({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={[styles.tab, active ? styles.tabActive : null]}>
-      <Text style={[styles.tabText, active ? styles.tabTextActive : null]}>{label}</Text>
-    </Pressable>
   );
 }
 

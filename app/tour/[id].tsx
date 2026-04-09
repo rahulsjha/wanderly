@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useGlobalSearchParams, useLocalSearchParams } from 'expo-router';
+import { router, useGlobalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,7 +10,6 @@ import { Wanderly } from '../../constants/wanderly-theme';
 
 export default function TourDetailScreen() {
   const insets = useSafeAreaInsets();
-  const local = useLocalSearchParams<{ id: string }>();
   const global = useGlobalSearchParams<{
     tour_title: string;
     tour_days: string;
@@ -58,7 +57,7 @@ export default function TourDetailScreen() {
           </Text>
           <Text style={styles.description}>
             Embark on an unforgettable journey through the heart of India. This tour is a deep dive into the
-            culture, history, and natural beauty of the region. From ancient temples to bustling markets, you'll
+            culture, history, and natural beauty of the region. From ancient temples to bustling markets, you&apos;ll
             experience the best of what this incredible destination has to offer.
           </Text>
         </View>
