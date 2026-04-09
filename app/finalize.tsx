@@ -11,13 +11,14 @@ import { placesById } from '@/data/mock-data';
 import { categoryLabel, formatDuration } from '@/lib/format';
 import { buildBreakdownText, buildCostLabel, buildDurationsById } from '@/lib/plan-derivations';
 import { buildTimeline, formatTime } from '@/lib/time';
+import { selectJourneyStartTime, selectPlaceIds } from '@/store/plan-selectors';
 import { usePlanStore } from '@/store/plan-store';
 
 export default function FinalizeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const placeIds = usePlanStore((s) => s.placeIds);
-  const startTime = usePlanStore((s) => s.journeyStartTime);
+  const placeIds = usePlanStore(selectPlaceIds);
+  const startTime = usePlanStore(selectJourneyStartTime);
 
   const durationsById = useMemo(() => buildDurationsById(placeIds, placesById), [placeIds]);
   const timeline = useMemo(() => buildTimeline(placeIds, durationsById, { start: startTime }), [placeIds, durationsById, startTime]);
@@ -95,7 +96,13 @@ export default function FinalizeScreen() {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}> 
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.iconButton}>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.iconButton}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            accessibilityHint="Returns to previous screen"
+          >
             <Ionicons name="chevron-back" size={22} color={Wanderly.colors.text} />
           </Pressable>
           <Text style={styles.title}>Finalize</Text>
@@ -128,7 +135,13 @@ export default function FinalizeScreen() {
               </View>
             </View>
 
-            <Pressable style={styles.emptyCtaButton} onPress={() => router.push('/summary')}>
+            <Pressable
+              style={styles.emptyCtaButton}
+              onPress={() => router.push('/summary')}
+              accessibilityRole="button"
+              accessibilityLabel="Go to my plan"
+              accessibilityHint="Opens your plan builder screen"
+            >
               <Ionicons name="list-outline" size={16} color="white" />
               <Text style={styles.primaryButtonText}>Go to My Plan</Text>
             </Pressable>
@@ -142,11 +155,23 @@ export default function FinalizeScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}> 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 24 + insets.bottom }]} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.iconButton}>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.iconButton}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            accessibilityHint="Returns to previous screen"
+          >
             <Ionicons name="chevron-back" size={22} color={Wanderly.colors.text} />
           </Pressable>
           <Text style={styles.title}>Finalized Journey</Text>
-          <Pressable onPress={onShare} style={styles.iconButton}>
+          <Pressable
+            onPress={onShare}
+            style={styles.iconButton}
+            accessibilityRole="button"
+            accessibilityLabel="Share finalized plan"
+            accessibilityHint="Opens system share with itinerary summary"
+          >
             <Ionicons name="share-outline" size={20} color={Wanderly.colors.text} />
           </Pressable>
         </View>
@@ -226,7 +251,13 @@ export default function FinalizeScreen() {
           })}
         </View>
 
-        <Pressable style={styles.primaryButton} onPress={onShare}>
+        <Pressable
+          style={styles.primaryButton}
+          onPress={onShare}
+          accessibilityRole="button"
+          accessibilityLabel="Share plan"
+          accessibilityHint="Shares your finalized itinerary"
+        >
           <Ionicons name="share-social-outline" size={18} color="white" />
           <Text style={styles.primaryButtonText}>Share plan</Text>
         </Pressable>

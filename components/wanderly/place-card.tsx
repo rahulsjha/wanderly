@@ -64,6 +64,7 @@ export function PlaceCard({
         style={({ pressed }) => [styles.card, added && styles.cardAdded, pressed && { opacity: 0.985 }]}
         accessibilityRole="button"
         accessibilityLabel={`Open details for ${place.name}`}
+        accessibilityHint="Opens an inline preview with full place details"
       >
         <Image
           source={{ uri: place.image_url }}
@@ -96,6 +97,10 @@ export function PlaceCard({
             onToggleWithDelight();
           }}
           style={styles.heartButton}
+          accessibilityRole="button"
+          accessibilityLabel={added ? `Remove ${place.name} from plan` : `Add ${place.name} to plan`}
+          accessibilityHint="Toggles saved state for this place"
+          accessibilityState={{ selected: added }}
         >
           <Ionicons name={added ? 'heart' : 'heart-outline'} size={24} color="rgba(255,255,255,0.85)" />
         </Pressable>
@@ -123,7 +128,13 @@ export function PlaceCard({
           </View>
         </View>
 
-        <Pressable style={styles.seeMoreBar} onPress={onPress}>
+        <Pressable
+          style={styles.seeMoreBar}
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={`See more details for ${place.name}`}
+          accessibilityHint="Opens a detailed preview panel"
+        >
           <Text style={styles.seeMoreText}>See more</Text>
           <View style={styles.seeMoreArrowCircle}>
             <Ionicons name="chevron-forward" size={24} color="#111111" style={{ marginLeft: 2 }} />

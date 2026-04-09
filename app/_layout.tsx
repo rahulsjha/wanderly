@@ -22,6 +22,7 @@ import {
   useFonts as useDevanagariFonts,
 } from '@expo-google-fonts/noto-serif-devanagari';
 
+import { AppErrorBoundary } from '@/components/wanderly/app-error-boundary';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
@@ -54,20 +55,22 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="place/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="tour/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="summary" options={{ headerShown: false }} />
-            <Stack.Screen name="finalize" options={{ headerShown: false }} />
-          </Stack>
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </BottomSheetModalProvider>
-    </GestureHandlerRootView>
+    <AppErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <BottomSheetModalProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="place/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="tour/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="summary" options={{ headerShown: false }} />
+              <Stack.Screen name="finalize" options={{ headerShown: false }} />
+            </Stack>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </BottomSheetModalProvider>
+      </GestureHandlerRootView>
+    </AppErrorBoundary>
   );
 }

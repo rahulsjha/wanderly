@@ -1,7 +1,7 @@
 import { Wanderly } from '@/constants/wanderly-theme';
 import type { CategoryDefinition } from '@/types/wanderly';
-import { useEffect, useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
@@ -73,11 +73,17 @@ function CategoryChip({
   selected,
   onPress,
   onLayout,
+  reduceMotion,
+  accessibilityLabel,
+  accessibilityHint,
 }: {
   category: CategoryDefinition;
   selected: boolean;
   onPress: () => void;
   onLayout?: (x: number, width: number) => void;
+  reduceMotion?: boolean;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }) {
   const scale = useSharedValue(1);
   const anim = useAnimatedStyle(() => ({
@@ -88,14 +94,18 @@ function CategoryChip({
     <AnimatedPressable
       onPress={onPress}
       onPressIn={() => {
+        if (reduceMotion) return;
         scale.value = withSpring(0.92, { damping: 14, stiffness: 260 });
       }}
       onPressOut={() => {
+        if (reduceMotion) return;
         scale.value = withSpring(1, { damping: 14, stiffness: 220 });
       }}
       onLayout={(e) => onLayout?.(e.nativeEvent.layout.x, e.nativeEvent.layout.width)}
       style={[styles.chip, selected && styles.chipSelected, anim]}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ selected }}
     >
       <View style={[styles.iconWrap, selected && styles.iconWrapSelected]}>
@@ -118,15 +128,23 @@ export function CategoryChips({
   const layouts = useRef<Record<string, { x: number; w: number }>>({});
   const indicatorX = useSharedValue(0);
   const indicatorW = useSharedValue(0);
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
 
   const selectedKey = useMemo(() => String(selectedId), [selectedId]);
 
   useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotionEnabled);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotionEnabled);
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
     const next = layouts.current[selectedKey];
     if (!next) return;
-    indicatorX.value = withTiming(next.x, { duration: 220 });
-    indicatorW.value = withTiming(next.w, { duration: 220 });
-  }, [selectedKey, indicatorW, indicatorX]);
+    const duration = reduceMotionEnabled ? 0 : 220;
+    indicatorX.value = withTiming(next.x, { duration });
+    indicatorW.value = withTiming(next.w, { duration });
+  }, [selectedKey, indicatorW, indicatorX, reduceMotionEnabled]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     width: indicatorW.value,
@@ -148,6 +166,9 @@ export function CategoryChips({
               category={c}
               selected={selected}
               onPress={() => onSelect(c.id)}
+              reduceMotion={reduceMotionEnabled}
+              accessibilityLabel={`${c.label} category`}
+              accessibilityHint="Filters the place list by this category"
               onLayout={(x, w) => {
                 layouts.current[String(c.id)] = { x, w };
                 if (c.id === selectedId && indicatorW.value === 0) {
@@ -180,6 +201,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    minHeight: 44,
     borderRadius: Wanderly.radius.pill,
     backgroundColor: Wanderly.colors.surface2,
     borderWidth: StyleSheet.hairlineWidth,

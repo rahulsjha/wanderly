@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   interpolate,
   runOnJS,
@@ -29,6 +29,7 @@ export function UndoToast({
 }) {
   const t = useSharedValue(0);
   const isMounted = useRef(false);
+  const reduceMotion = useSharedValue(false);
 
   const wrapStyle = useAnimatedStyle(() => {
     return {
@@ -38,18 +39,30 @@ export function UndoToast({
   });
 
   useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      reduceMotion.value = enabled;
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) => {
+      reduceMotion.value = enabled;
+    });
+    return () => sub.remove();
+  }, [reduceMotion]);
+
+  useEffect(() => {
     if (!isMounted.current) {
       isMounted.current = true;
       t.value = visible ? 1 : 0;
       return;
     }
-    t.value = withTiming(visible ? 1 : 0, { duration: visible ? 180 : 160 });
-  }, [t, visible]);
+    const duration = reduceMotion.value ? 0 : visible ? 180 : 160;
+    t.value = withTiming(visible ? 1 : 0, { duration });
+  }, [reduceMotion, t, visible]);
 
   useEffect(() => {
     if (!visible) return;
     const timeout = setTimeout(() => {
-      t.value = withTiming(0, { duration: 160 }, (finished) => {
+      const duration = reduceMotion.value ? 0 : 160;
+      t.value = withTiming(0, { duration }, (finished) => {
         'worklet';
         if (finished) {
           runOnJS(onDismiss)();
@@ -57,7 +70,7 @@ export function UndoToast({
       });
     }, durationMs);
     return () => clearTimeout(timeout);
-  }, [durationMs, onDismiss, t, visible]);
+  }, [durationMs, onDismiss, reduceMotion, t, visible]);
 
   if (!visible) return null;
 
@@ -65,7 +78,13 @@ export function UndoToast({
     <Animated.View style={[styles.wrap, { bottom: bottomOffset }, wrapStyle]}>
       <View style={styles.card}>
         <Text style={styles.msg}>{message}</Text>
-        <Pressable onPress={onAction} style={styles.action} accessibilityRole="button">
+        <Pressable
+          onPress={onAction}
+          style={styles.action}
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+          accessibilityHint="Dismisses the removal and restores the previous stop"
+        >
           <Text style={styles.actionText}>{actionLabel}</Text>
         </Pressable>
       </View>
@@ -99,10 +118,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   action: {
+    minHeight: 44,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionText: {
     color: 'white',

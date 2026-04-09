@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Dimensions, StyleSheet, View } from 'react-native';
 import Animated, {
     Easing,
     useAnimatedStyle,
@@ -15,15 +15,38 @@ const { width: screenW } = Dimensions.get('window');
 
 export function ShimmerCard({ height = Math.round((screenW - 32) * (9 / 16)) }: { height?: number }) {
   const t = useSharedValue(0);
+  const reduceMotion = useSharedValue(false);
 
   useEffect(() => {
-    t.value = 0;
-    t.value = withRepeat(
-      withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      false
-    );
-  }, [t]);
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      reduceMotion.value = enabled;
+      if (enabled) {
+        t.value = 0;
+        return;
+      }
+      t.value = 0;
+      t.value = withRepeat(
+        withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        false
+      );
+    });
+
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) => {
+      reduceMotion.value = enabled;
+      if (enabled) {
+        t.value = 0;
+        return;
+      }
+      t.value = withRepeat(
+        withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        false
+      );
+    });
+
+    return () => sub.remove();
+  }, [reduceMotion, t]);
 
   const sweep = useAnimatedStyle(() => {
     const travel = screenW * 0.9;

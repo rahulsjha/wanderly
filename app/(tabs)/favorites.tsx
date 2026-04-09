@@ -8,14 +8,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArchIllustration } from '@/components/wanderly/empty-illustrations';
 import { Wanderly } from '@/constants/wanderly-theme';
 import { PLACES } from '@/data/mock-data';
+import { selectCheckLaterIds, selectRemoveCheckLater } from '@/store/plan-selectors';
 import { usePlanStore } from '@/store/plan-store';
 
 export default function FavoritesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const checkLaterIds = usePlanStore((s) => s.checkLaterIds);
-  const removeCheckLater = usePlanStore((s) => s.removeCheckLater);
+  const checkLaterIds = usePlanStore(selectCheckLaterIds);
+  const removeCheckLater = usePlanStore(selectRemoveCheckLater);
 
   const checkLaterPlaces = useMemo(
     () => PLACES.filter((p) => checkLaterIds.includes(p.id)),

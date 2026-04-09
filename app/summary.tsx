@@ -145,6 +145,14 @@ export default function SummaryScreen() {
     setStartTimeError(null);
   };
 
+  const moveStop = (from: number, to: number) => {
+    if (to < 0 || to >= placeIds.length) return;
+    const next = placeIds.slice();
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    reorder(next);
+  };
+
   const applyStartTimeInput = () => {
     const parsed = parseTimeToken(startTimeInput);
     if (parsed == null) {
@@ -173,7 +181,13 @@ export default function SummaryScreen() {
         keyboardDismissMode="on-drag"
       >
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.iconButton}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          accessibilityHint="Returns to previous screen"
+        >
           <Ionicons name="chevron-back" size={24} color={Wanderly.colors.text} />
         </Pressable>
 
@@ -182,7 +196,13 @@ export default function SummaryScreen() {
         </View>
 
         <View style={styles.headerActions}>
-          <Pressable onPress={sharePlan} style={styles.iconButton}>
+          <Pressable
+            onPress={sharePlan}
+            style={styles.iconButton}
+            accessibilityRole="button"
+            accessibilityLabel="Share plan"
+            accessibilityHint="Opens system share for your current itinerary"
+          >
             <Ionicons name="share-outline" size={22} color={Wanderly.colors.text} />
           </Pressable>
         </View>
@@ -256,6 +276,10 @@ export default function SummaryScreen() {
                       <SwipeToDelete onFullSwipe={handleRemove}>
                         <Pressable
                           onPress={() => toggleExpanded(item)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${place.name} stop details`}
+                          accessibilityHint="Double tap to expand or collapse details"
+                          accessibilityState={{ expanded: isExpanded }}
                           style={({ pressed }) => [
                             styles.dayCard,
                             isExpanded ? styles.dayCardExpanded : null,
@@ -264,47 +288,91 @@ export default function SummaryScreen() {
                           ]}
                         >
                           <View style={styles.dayHeader}>
-                          <Pressable onLongPress={drag} style={styles.dragHandle}>
-                            <Ionicons name="reorder-three" size={20} color={Wanderly.colors.textMuted} />
-                          </Pressable>
+                            <View style={styles.dayPrimaryRow}>
+                              <Pressable
+                                onLongPress={drag}
+                                style={styles.dragHandle}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Reorder ${place.name}`}
+                                accessibilityHint="Long press and drag to reorder this stop"
+                              >
+                                <Ionicons name="reorder-three" size={20} color={Wanderly.colors.textMuted} />
+                              </Pressable>
 
-                          <View style={styles.orderBadge}>
-                            <Text style={styles.orderText}>{index + 1}</Text>
+                              <View style={styles.orderBadge}>
+                                <Text style={styles.orderText}>{index + 1}</Text>
+                              </View>
+
+                              <View style={styles.dayImageContainer}>
+                                {place.image_url ? (
+                                  <Image
+                                    source={{ uri: place.image_url }}
+                                    transition={200}
+                                    contentFit="cover"
+                                    style={styles.dayImage}
+                                  />
+                                ) : (
+                                  <View style={styles.dayImageFallback} />
+                                )}
+                              </View>
+
+                              <View style={styles.dayInfo}>
+                                <Text numberOfLines={1} style={styles.dayNumber}>
+                                  Stop {index + 1} · {categoryLabel(place.category)}
+                                </Text>
+                                <Text numberOfLines={2} style={styles.dayTitle}>
+                                  {place.name}
+                                </Text>
+                                <View style={styles.dayMetaRow}>
+                                  <Text numberOfLines={1} style={styles.dayTimeText}>
+                                    {formatTime(row.start)} – {formatTime(row.end)} · {formatDuration(row.durationMin)}
+                                  </Text>
+                                  <Ionicons
+                                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                    size={18}
+                                    color={Wanderly.colors.textMuted}
+                                  />
+                                </View>
+                              </View>
+
+                              <Pressable
+                                onPress={handleRemove}
+                                style={styles.removeButton}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Remove ${place.name}`}
+                                accessibilityHint="Removes this stop from your plan"
+                              >
+                                <Ionicons name="trash-outline" size={18} color={Wanderly.colors.textMuted} />
+                              </Pressable>
+                            </View>
+
+                            <View style={styles.reorderAltRow}>
+                              <Pressable
+                                onPress={() => moveStop(index, index - 1)}
+                                style={[styles.reorderAltButton, index === 0 ? styles.reorderAltButtonDisabled : null]}
+                                disabled={index === 0}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Move ${place.name} up`}
+                                accessibilityHint="Moves this stop one position earlier"
+                              >
+                                <Ionicons name="arrow-up" size={13} color={Wanderly.colors.textMuted} />
+                              </Pressable>
+                              <Pressable
+                                onPress={() => moveStop(index, index + 1)}
+                                style={[
+                                  styles.reorderAltButton,
+                                  index === placeIds.length - 1 ? styles.reorderAltButtonDisabled : null,
+                                ]}
+                                disabled={index === placeIds.length - 1}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Move ${place.name} down`}
+                                accessibilityHint="Moves this stop one position later"
+                              >
+                                <Ionicons name="arrow-down" size={13} color={Wanderly.colors.textMuted} />
+                              </Pressable>
+                              <Text style={styles.reorderHint}>Long-press drag handle to reorder</Text>
+                            </View>
                           </View>
-
-                          <View style={styles.dayImageContainer}>
-                            {place.image_url ? (
-                              <Image
-                                source={{ uri: place.image_url }}
-                                transition={200}
-                                contentFit="cover"
-                                style={styles.dayImage}
-                              />
-                            ) : (
-                              <View style={styles.dayImageFallback} />
-                            )}
-                          </View>
-
-                          <View style={styles.dayInfo}>
-                            <Text style={styles.dayNumber}>Stop {index + 1} · {categoryLabel(place.category)}</Text>
-                            <Text numberOfLines={2} style={styles.dayTitle}>
-                              {place.name}
-                            </Text>
-                            <Text style={styles.dayTimeText}>
-                              {formatTime(row.start)} – {formatTime(row.end)} · {formatDuration(row.durationMin)}
-                            </Text>
-                          </View>
-
-                          <Pressable onPress={handleRemove} style={styles.removeButton}>
-                            <Ionicons name="trash-outline" size={18} color={Wanderly.colors.textMuted} />
-                          </Pressable>
-
-                          <Ionicons
-                            name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                            size={22}
-                            color={Wanderly.colors.textMuted}
-                          />
-                        </View>
 
                         <View style={styles.timeRow}>
                           <Text style={styles.timeLabel}>{formatTime(row.start)}</Text>
@@ -382,9 +450,21 @@ export default function SummaryScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Timeline start</Text>
               <View style={styles.startTimeRow}>
-                <Pressable style={styles.timeAdjust} onPress={() => shiftStartTime(-15)}>
+                <Pressable
+                  style={styles.timeAdjust}
+                  onPress={() => shiftStartTime(-15)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Start 15 minutes earlier"
+                >
+                  <Ionicons name="remove" size={14} color={Wanderly.colors.text} />
                 </Pressable>
-                <Pressable style={styles.timeAdjust} onPress={() => shiftStartTime(15)}>
+                <Pressable
+                  style={styles.timeAdjust}
+                  onPress={() => shiftStartTime(15)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Start 15 minutes later"
+                >
+                  <Ionicons name="add" size={14} color={Wanderly.colors.text} />
                 </Pressable>
               </View>
             </View>
@@ -401,7 +481,13 @@ export default function SummaryScreen() {
                 onSubmitEditing={applyStartTimeInput}
                 selectionColor={Wanderly.colors.text}
               />
-              <Pressable style={styles.applyButton} onPress={applyStartTimeInput}>
+              <Pressable
+                style={styles.applyButton}
+                onPress={applyStartTimeInput}
+                accessibilityRole="button"
+                accessibilityLabel="Apply start time"
+                accessibilityHint="Updates the full timeline from entered start time"
+              >
                 <Text style={styles.applyButtonText}>Apply</Text>
               </Pressable>
             </View>
@@ -420,11 +506,23 @@ export default function SummaryScreen() {
             </View>
           </View>
 
-          <Pressable style={styles.ctaButton} onPress={() => router.push('/')}> 
+          <Pressable
+            style={styles.ctaButton}
+            onPress={() => router.push('/')}
+            accessibilityRole="button"
+            accessibilityLabel="Browse places"
+            accessibilityHint="Opens explore screen to add more places"
+          > 
             <Text style={styles.ctaButtonText}>Book a tour</Text>
           </Pressable>
 
-          <Pressable style={styles.finalizeButton} onPress={() => router.push('/finalize')}>
+          <Pressable
+            style={styles.finalizeButton}
+            onPress={() => router.push('/finalize')}
+            accessibilityRole="button"
+            accessibilityLabel="Finalize plan"
+            accessibilityHint="Opens final itinerary summary with map and timeline"
+          >
             <Ionicons name="checkmark-circle-outline" size={18} color={Wanderly.colors.text} />
             <Text style={styles.finalizeButtonText}>Finalize Plan</Text>
           </Pressable>
@@ -523,7 +621,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconButton: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   screenTitle: {
     fontSize: 20,
@@ -671,10 +772,13 @@ const styles = StyleSheet.create({
     opacity: 0.96,
   },
   dayHeader: {
+    gap: 10,
+    padding: 14,
+  },
+  dayPrimaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
+    gap: 10,
   },
   orderBadge: {
     width: 26,
@@ -691,19 +795,49 @@ const styles = StyleSheet.create({
     fontFamily: Wanderly.fonts.ui,
   },
   dragHandle: {
-    width: 26,
-    height: 26,
+    width: 40,
+    height: 40,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Wanderly.colors.surface2,
+    flexShrink: 0,
+  },
+  reorderAltRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+    marginLeft: 86,
+    paddingRight: 6,
+  },
+  reorderAltButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Wanderly.colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+  },
+  reorderAltButtonDisabled: {
+    opacity: 0.35,
+  },
+  reorderHint: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '600',
+    color: Wanderly.colors.textMuted,
+    fontFamily: Wanderly.fonts.ui,
   },
   dayImageContainer: {
-    width: 64,
-    height: 64,
+    width: 56,
+    height: 56,
     borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: Wanderly.colors.surface2,
+    flexShrink: 0,
   },
   dayImageFallback: {
     flex: 1,
@@ -716,28 +850,44 @@ const styles = StyleSheet.create({
   dayInfo: {
     flex: 1,
     gap: 4,
+    minWidth: 0,
   },
   dayNumber: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: Wanderly.colors.textMuted,
     fontFamily: Wanderly.fonts.ui,
   },
   dayTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: Wanderly.colors.text,
     fontFamily: Wanderly.fonts.ui,
-    lineHeight: 22,
+    lineHeight: 20,
+  },
+  dayMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   dayTimeText: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 12,
     fontWeight: '700',
     color: Wanderly.colors.textMuted,
     fontFamily: Wanderly.fonts.ui,
   },
   removeButton: {
-    padding: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Wanderly.colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+    flexShrink: 0,
   },
   timeRow: {
     flexDirection: 'row',
@@ -871,9 +1021,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   timeAdjust: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Wanderly.colors.surface2,
     alignItems: 'center',
     justifyContent: 'center',

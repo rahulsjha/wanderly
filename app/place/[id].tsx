@@ -1,6 +1,13 @@
 import { Wanderly } from '@/constants/wanderly-theme';
 import { PLACES, placesById } from '@/data/mock-data';
 import { categoryLabel } from '@/lib/format';
+import {
+  makeSelectIsCheckLater,
+  makeSelectIsInPlan,
+  selectAddPlace,
+  selectRemovePlace,
+  selectToggleCheckLater,
+} from '@/store/plan-selectors';
 import { usePlanStore } from '@/store/plan-store';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
@@ -31,16 +38,18 @@ export default function PlaceDetailScreen() {
   const placeId = String(params.id ?? '');
   const place = placesById[placeId];
 
-  const isSaved = usePlanStore((s) => (placeId ? s.isInPlan(placeId) : false));
-  const isCheckLater = usePlanStore((s) => (placeId ? s.isCheckLater(placeId) : false));
-  const add = usePlanStore((s) => s.add);
-  const remove = usePlanStore((s) => s.remove);
-  const toggleCheckLater = usePlanStore((s) => s.toggleCheckLater);
+  const isSavedSelector = useMemo(() => makeSelectIsInPlan(placeId), [placeId]);
+  const isCheckLaterSelector = useMemo(() => makeSelectIsCheckLater(placeId), [placeId]);
+  const isSaved = usePlanStore(isSavedSelector);
+  const isCheckLater = usePlanStore(isCheckLaterSelector);
+  const add = usePlanStore(selectAddPlace);
+  const remove = usePlanStore(selectRemovePlace);
+  const toggleCheckLater = usePlanStore(selectToggleCheckLater);
   const saveSheetRef = useRef<BottomSheetModal>(null);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  const saveSheetSnapPoints = useMemo(() => ['30%'], []);
+  const saveSheetSnapPoints = useMemo(() => ['30%', '46%'], []);
   const upcomingPlaces = useMemo(() => {
     if (!place) return [];
     const sameCategory = PLACES.filter((p) => p.id !== place.id && p.category === place.category);
@@ -61,7 +70,13 @@ export default function PlaceDetailScreen() {
       <View style={[styles.screen, { paddingTop: insets.top + 12, paddingHorizontal: 16 }]}>
         <Text style={styles.missingTitle}>Place not found</Text>
         <Text style={styles.missingSub}>This destination may have been removed.</Text>
-        <Pressable style={styles.missingBack} onPress={handleBack} accessibilityRole="button">
+        <Pressable
+          style={styles.missingBack}
+          onPress={handleBack}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          accessibilityHint="Returns to previous screen"
+        >
           <Ionicons name="chevron-back" size={18} color={Wanderly.colors.ink} />
           <Text style={styles.missingBackText}>Go back</Text>
         </Pressable>
@@ -115,17 +130,20 @@ export default function PlaceDetailScreen() {
           icon="chevron-back"
           onPress={handleBack}
           accessibilityLabel="Go back"
+          accessibilityHint="Returns to previous screen"
         />
         <View style={styles.heroActionRow}>
           <CircleIconButton
             icon="share-social-outline"
             onPress={onSharePlacePress}
             accessibilityLabel="Share place"
+            accessibilityHint="Opens system share with this place information"
           />
           <CircleIconButton
             icon={isSaved ? 'heart' : 'heart-outline'}
             onPress={openSaveSheet}
             accessibilityLabel="Open save options"
+            accessibilityHint="Opens save and check-later actions"
           />
         </View>
       </View>
@@ -183,12 +201,25 @@ export default function PlaceDetailScreen() {
             </View>
 
             <View style={styles.quickActionsRow}>
-              <Pressable onPress={onSharePlacePress} style={styles.quickActionButton} accessibilityRole="button">
+              <Pressable
+                onPress={onSharePlacePress}
+                style={styles.quickActionButton}
+                accessibilityRole="button"
+                accessibilityLabel="Share place"
+                accessibilityHint="Opens system share with place details"
+              >
                 <Ionicons name="share-social-outline" size={16} color="#000000" />
                 <Text style={styles.quickActionText}>Share</Text>
               </Pressable>
 
-              <Pressable onPress={onCheckLaterPress} style={styles.quickActionButton} accessibilityRole="button">
+              <Pressable
+                onPress={onCheckLaterPress}
+                style={styles.quickActionButton}
+                accessibilityRole="button"
+                accessibilityLabel={isCheckLater ? 'Remove check later' : 'Mark check later'}
+                accessibilityHint="Saves this place for a future visit"
+                accessibilityState={{ selected: isCheckLater }}
+              >
                 <Ionicons
                   name={isCheckLater ? 'bookmark' : 'bookmark-outline'}
                   size={16}
@@ -258,6 +289,9 @@ export default function PlaceDetailScreen() {
         snapPoints={saveSheetSnapPoints}
         backdropComponent={(props) => <SheetBackdrop {...props} />}
         enablePanDownToClose
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        enableOverDrag={false}
         backgroundStyle={styles.sheetModalBackground}
         handleIndicatorStyle={styles.sheetModalHandle}
       >
@@ -265,15 +299,34 @@ export default function PlaceDetailScreen() {
           <Text style={styles.sheetModalTitle}>Save options</Text>
           <Text style={styles.sheetModalSubtitle}>Choose how you want to keep this place.</Text>
 
-          <Pressable onPress={onSaveNowPress} style={styles.sheetActionPrimary} accessibilityRole="button">
+          <Pressable
+            onPress={onSaveNowPress}
+            style={styles.sheetActionPrimary}
+            accessibilityRole="button"
+            accessibilityLabel={isSaved ? 'Remove from saved places' : 'Save place'}
+            accessibilityHint="Adds or removes this place from your plan"
+          >
             <Text style={styles.sheetActionPrimaryText}>{isSaved ? 'Remove from saved' : 'Save place'}</Text>
           </Pressable>
 
-          <Pressable onPress={onCheckLaterPress} style={styles.sheetActionSecondary} accessibilityRole="button">
+          <Pressable
+            onPress={onCheckLaterPress}
+            style={styles.sheetActionSecondary}
+            accessibilityRole="button"
+            accessibilityLabel={isCheckLater ? 'Checked for later' : 'Check later'}
+            accessibilityHint="Marks this place for later planning"
+            accessibilityState={{ selected: isCheckLater }}
+          >
             <Text style={styles.sheetActionSecondaryText}>{isCheckLater ? 'Checked for later ✓' : 'Check later'}</Text>
           </Pressable>
 
-          <Pressable onPress={onSharePlacePress} style={styles.sheetActionSecondary} accessibilityRole="button">
+          <Pressable
+            onPress={onSharePlacePress}
+            style={styles.sheetActionSecondary}
+            accessibilityRole="button"
+            accessibilityLabel="Share place"
+            accessibilityHint="Shares place details"
+          >
             <Text style={styles.sheetActionSecondaryText}>Share place</Text>
           </Pressable>
         </BottomSheetView>
@@ -294,16 +347,19 @@ function CircleIconButton({
   icon,
   onPress,
   accessibilityLabel,
+  accessibilityHint,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   accessibilityLabel: string;
+  accessibilityHint?: string;
 }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       style={({ pressed }) => [styles.circleButton, pressed && { transform: [{ scale: 0.98 }], opacity: 0.96 }]}
     >
       <Ionicons name={icon} size={20} color={Wanderly.colors.ink} />
@@ -321,7 +377,13 @@ function UpcomingPlaceCard({
   const [imageLoading, setImageLoading] = useState(true);
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.tourCard, pressed && { opacity: 0.98 }]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.tourCard, pressed && { opacity: 0.98 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${place.name}`}
+      accessibilityHint="Opens this place detail"
+    >
       <Image
         source={{ uri: place.image_url }}
         style={StyleSheet.absoluteFill}
@@ -583,6 +645,7 @@ const styles = StyleSheet.create({
   quickActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 44,
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -744,6 +807,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 44,
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -785,8 +849,10 @@ const styles = StyleSheet.create({
   sheetActionPrimary: {
     backgroundColor: Wanderly.colors.text,
     borderRadius: 12,
+    minHeight: 44,
     paddingVertical: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   sheetActionPrimaryText: {
     color: 'white',
@@ -796,8 +862,10 @@ const styles = StyleSheet.create({
   sheetActionSecondary: {
     backgroundColor: Wanderly.colors.surface2,
     borderRadius: 12,
+    minHeight: 44,
     paddingVertical: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Wanderly.colors.border,
   },
