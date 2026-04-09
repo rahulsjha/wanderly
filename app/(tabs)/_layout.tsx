@@ -1,60 +1,72 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { Wanderly } from '@/constants/wanderly-theme';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = 58 + insets.bottom;
+
   return (
     <Tabs
       screenOptions={{
+        tabBarActiveTintColor: '#1C1C1E',
+        tabBarInactiveTintColor: '#8E8E93',
         headerShown: false,
-        tabBarActiveTintColor: Wanderly.colors.primary,
-        tabBarInactiveTintColor: Wanderly.colors.text,
+        tabBarButton: HapticTab,
+        tabBarShowLabel: true,
+        tabBarLabelStyle: styles.label,
+        tabBarItemStyle: {
+          paddingTop: 4,
+          paddingBottom: 2,
+        },
         tabBarStyle: {
           position: 'absolute',
-          bottom: 8,
-          left: 16,
-          right: 16,
-          elevation: 0,
-          backgroundColor: Wanderly.colors.background,
-          borderRadius: 15,
-          height: 70,
-          borderTopWidth: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: tabBarHeight,
+          paddingBottom: insets.bottom,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: '#E5E7EB',
+          backgroundColor: '#FFFFFF',
+          elevation: 8,
           shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: 2,
-          },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -2 },
         },
-        tabBarShowLabel: false,
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Explore',
-          tabBarButton: (props) => <HapticTab {...props} />,
-          tabBarIcon: ({ color }) => <Ionicons size={28} name="compass-outline" color={color} />,
+          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'compass' : 'compass-outline'} size={20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="favorites"
         options={{
-          title: 'Check Later',
-          tabBarButton: (props) => <HapticTab {...props} />,
-          tabBarIcon: ({ color }) => <Ionicons size={28} name="bookmark-outline" color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="summary"
         options={{
           title: 'Summary',
-          tabBarButton: (props) => <HapticTab {...props} />,
-          tabBarIcon: ({ color }) => <Ionicons size={28} name="document-text-outline" color={color} />,
+          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'list' : 'list-outline'} size={20} color={color} />,
         }}
       />
     </Tabs>
   );
 }
+
+
+const styles = StyleSheet.create({
+  label: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+});

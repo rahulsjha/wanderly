@@ -1,24 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-    LayoutAnimation,
-    Platform,
-    Pressable,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    UIManager,
-    View,
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  UIManager,
+  View,
 } from 'react-native';
+import DraggableFlatList, { type RenderItemParams } from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SwipeToDelete } from '@/components/wanderly/swipe-to-delete';
+import { UndoToast } from '@/components/wanderly/toast';
 import { Wanderly } from '@/constants/wanderly-theme';
 import { placesById } from '@/data/mock-data';
-import { categoryLabel, formatDuration, priceScore, totalCostLabel } from '@/lib/format';
-import { buildTimeline, formatTime } from '@/lib/time';
+import { categoryLabel, formatDuration } from '@/lib/format';
+import { buildBreakdownText, buildCostLabel, buildDurationsById } from '@/lib/plan-derivations';
+import { addMinutes, buildTimeline, formatTime, minutesFromTime, type TimeOfDay } from '@/lib/time';
 import { usePlanStore } from '@/store/plan-store';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -27,111 +33,183 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 type TabKey = 'schedule' | 'accommodation' | 'booking';
 
+type OpeningRange = { start: number; end: number };
+
+function parseTimeToken(token: string): number | null {
+  const m = token.trim().match(/(\d{1,2})\s*:\s*(\d{2})\s*(AM|PM)/i);
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  const ampm = m[3].toUpperCase() as 'AM' | 'PM';
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  const hour24 = (hh % 12) + (ampm === 'PM' ? 12 : 0);
+  return hour24 * 60 + mm;
+}
+
+function parseOpeningRanges(openingHours?: string):
+  | { kind: 'unknown' }
+  | { kind: 'always' }
+  | { kind: 'ranges'; ranges: OpeningRange[] } {
+  if (!openingHours) return { kind: 'unknown' };
+  const raw = openingHours.trim();
+  const lower = raw.toLowerCase();
+  if (!raw) return { kind: 'unknown' };
+  if (lower.includes('open 24 hours')) return { kind: 'always' };
+  if (lower.includes('shows at')) return { kind: 'unknown' };
+
+  const ranges: OpeningRange[] = [];
+  const segments = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  for (const seg of segments) {
+    const parts = seg.split('-');
+    if (parts.length !== 2) continue;
+    const start = parseTimeToken(parts[0]);
+    const end = parseTimeToken(parts[1]);
+    if (start == null || end == null) continue;
+    ranges.push({ start, end });
+  }
+
+  if (!ranges.length) return { kind: 'unknown' };
+  return { kind: 'ranges', ranges };
+}
+
+function isSpanWithinRange(startMin: number, endMin: number, range: OpeningRange) {
+  if (range.start === range.end) return true;
+  if (range.end > range.start) return startMin >= range.start && endMin <= range.end;
+  const inLate = startMin >= range.start && endMin <= 24 * 60;
+  const inEarly = startMin >= 0 && endMin <= range.end;
+  return inLate || inEarly;
+}
+
+function hasOpeningConflict(openingHours: string | undefined, startMin: number, endMin: number): boolean {
+  const parsed = parseOpeningRanges(openingHours);
+  if (parsed.kind !== 'ranges') return false;
+  const ok = parsed.ranges.some((range) => isSpanWithinRange(startMin, endMin, range));
+  return !ok;
+}
+
 export default function SummaryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const placeIds = usePlanStore((s) => s.placeIds);
+  const reorder = usePlanStore((s) => s.reorder);
+  const removeAt = usePlanStore((s) => s.removeAt);
+  const undoRemove = usePlanStore((s) => s.undoRemove);
+  const clearUndo = usePlanStore((s) => s.clearUndo);
+  const lastRemoved = usePlanStore((s) => s.lastRemoved);
+  const startTime = usePlanStore((s) => s.journeyStartTime);
+  const setJourneyStartTime = usePlanStore((s) => s.setJourneyStartTime);
 
   const [tab, setTab] = useState<TabKey>('schedule');
-  const [expandedDay, setExpandedDay] = useState<number | null>(0);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [startTimeInput, setStartTimeInput] = useState(() => formatTime(startTime));
+  const [startTimeError, setStartTimeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStartTimeInput(formatTime(startTime));
+  }, [startTime]);
 
   const durationsById = useMemo(() => {
-    const out: Record<string, number> = {};
-    for (const id of placeIds) out[id] = placesById[id]?.estimated_duration_min ?? 45;
-    return out;
+    return buildDurationsById(placeIds, placesById);
   }, [placeIds]);
 
-  const timeline = useMemo(() => buildTimeline(placeIds, durationsById), [placeIds, durationsById]);
+  const timeline = useMemo(
+    () => buildTimeline(placeIds, durationsById, { start: startTime }),
+    [placeIds, durationsById, startTime]
+  );
 
-  const breakdown = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const id of placeIds) {
-      const p = placesById[id];
-      if (!p) continue;
-      counts[p.category] = (counts[p.category] ?? 0) + 1;
-    }
-    return counts;
-  }, [placeIds]);
+  const totalTripMin = useMemo(() => {
+    return timeline.rows.reduce((sum, row) => sum + row.durationMin + (row.travelGapMinBefore ?? 0), 0);
+  }, [timeline.rows]);
+
+  const endTime = useMemo(() => addMinutes(startTime, totalTripMin), [startTime, totalTripMin]);
 
   const breakdownText = useMemo(() => {
-    const parts: string[] = [];
-    const order: Array<'landmark' | 'restaurant' | 'cafe' | 'activity' | 'shopping'> = [
-      'landmark',
-      'restaurant',
-      'cafe',
-      'activity',
-      'shopping',
-    ];
-    for (const key of order) {
-      const v = (breakdown as any)[key] as number | undefined;
-      if (!v) continue;
-      parts.push(`${v} ${categoryLabel(key)}${v > 1 ? 's' : ''}`);
-    }
-    return parts.length ? parts.join(' · ') : '—';
-  }, [breakdown]);
+    return buildBreakdownText(placeIds, placesById, ' · ');
+  }, [placeIds]);
 
   const costLabel = useMemo(() => {
-    if (placeIds.length === 0) return '—';
-    const scores = placeIds.map((id) => priceScore(placesById[id]?.price_level ?? '$'));
-    const avg = scores.reduce((a, b) => a + b, 0) / Math.max(1, scores.length);
-    return totalCostLabel(avg);
+    return buildCostLabel(placeIds, placesById);
   }, [placeIds]);
 
   const sharePlan = async () => {
     const first = placeIds.length ? placesById[placeIds[0]]?.name : undefined;
     await Share.share({
       message: `My Wanderly plan${first ? ` starts at ${first}` : ''}: ${placeIds.length} stops, ${formatDuration(
-        timeline.totalDurationMin
+        totalTripMin
       )}.`,
     });
   };
 
-  const toggleExpanded = (dayIdx: number) => {
+  const shiftStartTime = (deltaMin: number) => {
+    setJourneyStartTime(addMinutes(startTime, deltaMin));
+    setStartTimeError(null);
+  };
+
+  const applyStartTimeInput = () => {
+    const parsed = parseTimeToken(startTimeInput);
+    if (parsed == null) {
+      setStartTimeError('Use format like 9:30 AM');
+      return;
+    }
+    const next: TimeOfDay = { hour: Math.floor(parsed / 60) % 24, minute: parsed % 60 };
+    setJourneyStartTime(next);
+    setStartTimeError(null);
+  };
+
+  const toggleExpanded = (id: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedDay((prev) => (prev === dayIdx ? null : dayIdx));
+    setExpandedId((prev) => (prev === id ? null : id));
   };
 
   return (
-    <ScrollView
-      style={[styles.screen, { paddingTop: insets.top }]}
-      contentContainerStyle={[styles.contentContainer, { paddingBottom: 120 + insets.bottom }]}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={[styles.screen, { paddingTop: insets.top }]}
+      >
+      <ScrollView
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: 220 + insets.bottom }]}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        decelerationRate="fast"
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.iconButton}>
           <Ionicons name="chevron-back" size={24} color={Wanderly.colors.text} />
         </Pressable>
 
         <View style={styles.headerTitleWrap}>
-          <Text style={styles.screenTitle}>Iconic Jaipur</Text>
-          <Text style={styles.dateRange}>Today – Tomorrow</Text>
+          <Text style={styles.screenTitle}>My Plan</Text>
         </View>
 
         <View style={styles.headerActions}>
           <Pressable onPress={sharePlan} style={styles.iconButton}>
             <Ionicons name="share-outline" size={22} color={Wanderly.colors.text} />
           </Pressable>
-          <Pressable style={styles.iconButton}>
-            <Ionicons name="heart-outline" size={22} color={Wanderly.colors.text} />
-          </Pressable>
         </View>
       </View>
 
       <View style={styles.metrics}>
         <Metric icon="location" label="Stops" value={`${placeIds.length || '—'}`} />
-        <Metric icon="time" label="Total" value={placeIds.length ? formatDuration(timeline.totalDurationMin) : '—'} />
+        <Metric icon="time" label="Total" value={placeIds.length ? formatDuration(totalTripMin) : '—'} />
         <Metric icon="wallet" label="Cost" value={costLabel} />
       </View>
 
-      <View style={styles.tabsContainer}>
-        <TabPill label="Tour schedule" active={tab === 'schedule'} onPress={() => setTab('schedule')} />
-        <TabPill label="Accommodation" active={tab === 'accommodation'} onPress={() => setTab('accommodation')} />
-        <TabPill label="Booking details" active={tab === 'booking'} onPress={() => setTab('booking')} />
-      </View>
 
       {tab === 'schedule' && (
         <>
-          <Text style={styles.itineraryTitle}>{Math.max(1, timeline.rows.length)}-Days Jaipur Adventure</Text>
+          <Text style={styles.itineraryTitle}>1-Day Iconic Jaipur Plan</Text>
+
+          {totalTripMin > 10 * 60 && (
+            <View style={styles.alertCard}>
+              <Ionicons name="alert-circle" size={18} color={Wanderly.colors.danger} />
+              <View style={styles.alertTextWrap}>
+                <Text style={styles.alertTitle}>Long day ahead</Text>
+                <Text style={styles.alertText}>
+                  Your plan is over 10 hours. Consider reordering or removing a stop.
+                </Text>
+              </View>
+            </View>
+          )}
 
           {placeIds.length === 0 ? (
             <View style={styles.emptyCard}>
@@ -143,83 +221,198 @@ export default function SummaryScreen() {
             </View>
           ) : (
             <View style={styles.daysContainer}>
-              {timeline.rows.map((row, idx) => {
-                const place = placesById[row.id];
-                if (!place) return null;
-                const isExpanded = expandedDay === idx;
+              <DraggableFlatList
+                data={placeIds}
+                keyExtractor={(item) => item}
+                scrollEnabled={false}
+                activationDistance={10}
+                onDragBegin={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+                }}
+                onDragEnd={({ data }) => reorder(data)}
+                renderItem={({ item, drag, isActive, getIndex }: RenderItemParams<string>) => {
+                  const index = getIndex?.() ?? 0;
+                  const row = timeline.rows[index];
+                  const place = placesById[item];
+                  if (!place || !row) return null;
+                  const isExpanded = expandedId === item;
+                  const startMin = minutesFromTime(row.start);
+                  const endMin = minutesFromTime(row.end);
+                  const conflict = hasOpeningConflict(place.opening_hours, startMin, endMin);
 
-                return (
-                  <Pressable
-                    key={row.id}
-                    onPress={() => toggleExpanded(idx)}
-                    style={({ pressed }) => [
-                      styles.dayCard,
-                      isExpanded ? styles.dayCardExpanded : null,
-                      pressed ? styles.dayCardPressed : null,
-                    ]}
-                  >
-                    <View style={styles.dayHeader}>
-                      <View style={styles.dayImageContainer}>
-                        {place.image_url ? (
-                          <Image
-                            source={{ uri: place.image_url }}
-                            transition={200}
-                            contentFit="cover"
-                            style={styles.dayImage}
+                  const handleRemove = () => {
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    removeAt(index);
+                  };
+
+                  return (
+                    <View style={styles.timelineItemWrap}>
+                      {row.travelGapMinBefore ? (
+                        <View style={styles.gapRow}>
+                          <View style={styles.gapLine} />
+                          <Text style={styles.gapText}>Travel gap · {row.travelGapMinBefore} min</Text>
+                        </View>
+                      ) : null}
+                      <SwipeToDelete onFullSwipe={handleRemove}>
+                        <Pressable
+                          onPress={() => toggleExpanded(item)}
+                          style={({ pressed }) => [
+                            styles.dayCard,
+                            isExpanded ? styles.dayCardExpanded : null,
+                            pressed ? styles.dayCardPressed : null,
+                            isActive ? styles.dayCardActive : null,
+                          ]}
+                        >
+                          <View style={styles.dayHeader}>
+                          <Pressable onLongPress={drag} style={styles.dragHandle}>
+                            <Ionicons name="reorder-three" size={20} color={Wanderly.colors.textMuted} />
+                          </Pressable>
+
+                          <View style={styles.orderBadge}>
+                            <Text style={styles.orderText}>{index + 1}</Text>
+                          </View>
+
+                          <View style={styles.dayImageContainer}>
+                            {place.image_url ? (
+                              <Image
+                                source={{ uri: place.image_url }}
+                                transition={200}
+                                contentFit="cover"
+                                style={styles.dayImage}
+                              />
+                            ) : (
+                              <View style={styles.dayImageFallback} />
+                            )}
+                          </View>
+
+                          <View style={styles.dayInfo}>
+                            <Text style={styles.dayNumber}>Stop {index + 1} · {categoryLabel(place.category)}</Text>
+                            <Text numberOfLines={2} style={styles.dayTitle}>
+                              {place.name}
+                            </Text>
+                            <Text style={styles.dayTimeText}>
+                              {formatTime(row.start)} – {formatTime(row.end)} · {formatDuration(row.durationMin)}
+                            </Text>
+                          </View>
+
+                          <Pressable onPress={handleRemove} style={styles.removeButton}>
+                            <Ionicons name="trash-outline" size={18} color={Wanderly.colors.textMuted} />
+                          </Pressable>
+
+                          <Ionicons
+                            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={22}
+                            color={Wanderly.colors.textMuted}
                           />
-                        ) : (
-                          <View style={styles.dayImageFallback} />
+                        </View>
+
+                        <View style={styles.timeRow}>
+                          <Text style={styles.timeLabel}>{formatTime(row.start)}</Text>
+                          <View style={styles.timeBar}>
+                            <View style={[styles.timeFill, conflict ? styles.timeFillConflict : null]} />
+                          </View>
+                          <Text style={styles.timeLabel}>{formatTime(row.end)}</Text>
+                        </View>
+
+                        {conflict && (
+                          <View style={styles.conflictRow}>
+                            <Ionicons name="alert-circle" size={14} color={Wanderly.colors.danger} />
+                            <Text style={styles.conflictText}>Outside opening hours</Text>
+                          </View>
                         )}
-                      </View>
 
-                      <View style={styles.dayInfo}>
-                        <Text style={styles.dayNumber}>Day {idx + 1}</Text>
-                        <Text numberOfLines={2} style={styles.dayTitle}>
-                          {place.name}
-                        </Text>
-                      </View>
-
-                      <Ionicons
-                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                        size={22}
-                        color={Wanderly.colors.textMuted}
-                      />
+                        {isExpanded && (
+                          <View style={styles.dayContent}>
+                            <View style={styles.segmentBlock}>
+                              <Text style={styles.segmentLabel}>Plan</Text>
+                              <Text style={styles.segmentText}>{place.description}</Text>
+                            </View>
+                            <View style={styles.segmentBlock}>
+                              <Text style={styles.segmentLabel}>Details</Text>
+                              <Text style={styles.segmentText}>
+                                Estimated time: {place.estimated_duration_min} min · Distance: {place.distance_km} km
+                              </Text>
+                            </View>
+                            <View style={styles.segmentBlock}>
+                              <Text style={styles.segmentLabel}>Opening hours</Text>
+                              <Text style={styles.segmentText}>{place.opening_hours}</Text>
+                            </View>
+                            <View style={styles.segmentBlock}>
+                              <Text style={styles.segmentLabel}>Price & tags</Text>
+                              <Text style={styles.segmentText}>
+                                {place.price_level} · {place.tags?.join(', ') || '—'}
+                              </Text>
+                            </View>
+                            <View style={styles.metaGrid}>
+                              <View style={styles.metaPill}>
+                                <Ionicons name="time" size={12} color={Wanderly.colors.textMuted} />
+                                <Text style={styles.metaText}>Duration: {place.estimated_duration_min} min</Text>
+                              </View>
+                              <View style={styles.metaPill}>
+                                <Ionicons name="navigate" size={12} color={Wanderly.colors.textMuted} />
+                                <Text style={styles.metaText}>Distance: {place.distance_km} km</Text>
+                              </View>
+                              <View style={styles.metaPillWide}>
+                                <Ionicons name="time-outline" size={12} color={Wanderly.colors.textMuted} />
+                                <Text style={styles.metaText}>Hours: {place.opening_hours}</Text>
+                              </View>
+                              <View style={styles.metaPill}>
+                                <Ionicons name="pricetag" size={12} color={Wanderly.colors.textMuted} />
+                                <Text style={styles.metaText}>Price: {place.price_level}</Text>
+                              </View>
+                              {place.tags?.length ? (
+                                <View style={styles.metaPillWide}>
+                                  <Ionicons name="pricetags" size={12} color={Wanderly.colors.textMuted} />
+                                  <Text style={styles.metaText}>Tags: {place.tags.join(', ')}</Text>
+                                </View>
+                              ) : null}
+                            </View>
+                          </View>
+                        )}
+                        </Pressable>
+                      </SwipeToDelete>
                     </View>
-
-                    {isExpanded && (
-                      <View style={styles.dayContent}>
-                        <View style={styles.segmentBlock}>
-                          <Text style={styles.segmentLabel}>Morning</Text>
-                          <Text style={styles.segmentText}>
-                            Arrive in {place.name} to start your day. Expected duration is {formatDuration(row.durationMin)}.
-                          </Text>
-                        </View>
-                        <View style={styles.segmentBlock}>
-                          <Text style={styles.segmentLabel}>Afternoon</Text>
-                          <Text style={styles.segmentText}>{place.description}</Text>
-                        </View>
-                        <View style={styles.segmentBlock}>
-                          <Text style={styles.segmentLabel}>Evening</Text>
-                          <Text style={styles.segmentText}>
-                            Relax nearby or grab a quick bite. Ratings: ★ {place.rating.toFixed(1)}
-                          </Text>
-                        </View>
-                      </View>
-                    )}
-                  </Pressable>
-                );
-              })}
+                  );
+                }}
+              />
             </View>
           )}
 
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Timeline start</Text>
-              <Text style={styles.summaryValue}>{formatTime({ hour: 9, minute: 0 })}</Text>
+              <View style={styles.startTimeRow}>
+                <Pressable style={styles.timeAdjust} onPress={() => shiftStartTime(-15)}>
+                </Pressable>
+                <Pressable style={styles.timeAdjust} onPress={() => shiftStartTime(15)}>
+                </Pressable>
+              </View>
             </View>
+            <View style={styles.startInputRow}>
+              <TextInput
+                value={startTimeInput}
+                onChangeText={setStartTimeInput}
+                placeholder="e.g. 9:30 AM"
+                placeholderTextColor={Wanderly.colors.textMuted}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                style={styles.startInput}
+                returnKeyType="done"
+                onSubmitEditing={applyStartTimeInput}
+                selectionColor={Wanderly.colors.text}
+              />
+              <Pressable style={styles.applyButton} onPress={applyStartTimeInput}>
+                <Text style={styles.applyButtonText}>Apply</Text>
+              </Pressable>
+            </View>
+            {startTimeError ? <Text style={styles.startInputError}>{startTimeError}</Text> : null}
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Total duration</Text>
-              <Text style={styles.summaryValue}>{placeIds.length ? formatDuration(timeline.totalDurationMin) : '—'}</Text>
+              <Text style={styles.summaryValue}>{placeIds.length ? formatDuration(totalTripMin) : '—'}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>End time</Text>
+              <Text style={styles.summaryValue}>{placeIds.length ? formatTime(endTime) : '—'}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Breakdown</Text>
@@ -229,6 +422,11 @@ export default function SummaryScreen() {
 
           <Pressable style={styles.ctaButton} onPress={() => router.push('/')}> 
             <Text style={styles.ctaButtonText}>Book a tour</Text>
+          </Pressable>
+
+          <Pressable style={styles.finalizeButton} onPress={() => router.push('/finalize')}>
+            <Ionicons name="checkmark-circle-outline" size={18} color={Wanderly.colors.text} />
+            <Text style={styles.finalizeButtonText}>Finalize Plan</Text>
           </Pressable>
         </>
       )}
@@ -254,7 +452,15 @@ export default function SummaryScreen() {
           </Pressable>
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+      <UndoToast
+        visible={!!lastRemoved}
+        message="Stop removed"
+        actionLabel="Undo"
+        onAction={undoRemove}
+        onDismiss={clearUndo}
+      />
+    </View>
   );
 }
 
@@ -362,6 +568,32 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 20,
   },
+  alertCard: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.08)',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 59, 48, 0.2)',
+    marginBottom: 16,
+  },
+  alertTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  alertTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Wanderly.colors.text,
+    fontFamily: Wanderly.fonts.ui,
+  },
+  alertText: {
+    fontSize: 12,
+    color: Wanderly.colors.textMuted,
+    fontFamily: Wanderly.fonts.ui,
+  },
   tab: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -388,6 +620,28 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     letterSpacing: -0.3,
   },
+  timelineItemWrap: {
+    gap: 8,
+  },
+  gapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+  },
+  gapLine: {
+    width: 18,
+    height: 1,
+    backgroundColor: Wanderly.colors.border,
+  },
+  gapText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Wanderly.colors.textMuted,
+    fontFamily: Wanderly.fonts.ui,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
   daysContainer: {
     gap: 14,
     marginBottom: 20,
@@ -408,6 +662,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     elevation: 5,
   },
+  dayCardActive: {
+    opacity: 0.96,
+    transform: [{ scale: 1.01 }],
+  },
   dayCardPressed: {
     opacity: 0.96,
   },
@@ -416,6 +674,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 14,
+  },
+  orderBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Wanderly.colors.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orderText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '800',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  dragHandle: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Wanderly.colors.surface2,
   },
   dayImageContainer: {
     width: 64,
@@ -449,6 +729,55 @@ const styles = StyleSheet.create({
     fontFamily: Wanderly.fonts.ui,
     lineHeight: 22,
   },
+  dayTimeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Wanderly.colors.textMuted,
+    fontFamily: Wanderly.fonts.ui,
+  },
+  removeButton: {
+    padding: 6,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+  },
+  timeLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Wanderly.colors.textMuted,
+    fontFamily: Wanderly.fonts.ui,
+  },
+  timeBar: {
+    flex: 1,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: Wanderly.colors.surface2,
+    overflow: 'hidden',
+  },
+  timeFill: {
+    flex: 1,
+    backgroundColor: Wanderly.colors.text,
+  },
+  timeFillConflict: {
+    backgroundColor: Wanderly.colors.danger,
+  },
+  conflictRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+  },
+  conflictText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Wanderly.colors.danger,
+    fontFamily: Wanderly.fonts.ui,
+  },
   dayContent: {
     paddingHorizontal: 14,
     paddingBottom: 16,
@@ -456,6 +785,39 @@ const styles = StyleSheet.create({
     gap: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Wanderly.colors.border,
+  },
+  metaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Wanderly.colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+  },
+  metaPillWide: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Wanderly.colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Wanderly.colors.textMuted,
+    fontFamily: Wanderly.fonts.ui,
   },
   segmentBlock: {
     gap: 4,
@@ -502,6 +864,61 @@ const styles = StyleSheet.create({
     color: Wanderly.colors.text,
     fontFamily: Wanderly.fonts.ui,
   },
+  startTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeAdjust: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Wanderly.colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+  },
+  startInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+  },
+  startInput: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: Wanderly.colors.text,
+    fontFamily: Wanderly.fonts.ui,
+    fontSize: 13,
+  },
+  applyButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: Wanderly.colors.text,
+  },
+  applyButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  startInputError: {
+    marginTop: -2,
+    fontSize: 12,
+    color: Wanderly.colors.danger,
+    fontFamily: Wanderly.fonts.ui,
+  },
   ctaButton: {
     backgroundColor: Wanderly.colors.text,
     borderRadius: 999,
@@ -514,6 +931,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: 'white',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  finalizeButton: {
+    alignSelf: 'center',
+    marginTop: 4,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: Wanderly.colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+  },
+  finalizeButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Wanderly.colors.text,
     fontFamily: Wanderly.fonts.ui,
   },
   placeholderCard: {

@@ -1,9 +1,12 @@
 import { create } from 'zustand';
 
+import { DEFAULT_START, type TimeOfDay } from '@/lib/time';
+
 type PlanState = {
   placeIds: string[];
   checkLaterIds: string[];
   lastRemoved?: { id: string; index: number };
+  journeyStartTime: TimeOfDay;
 
   isInPlan: (placeId: string) => boolean;
   isCheckLater: (placeId: string) => boolean;
@@ -13,6 +16,7 @@ type PlanState = {
   removeCheckLater: (placeId: string) => void;
   removeAt: (index: number) => void;
   reorder: (next: string[]) => void;
+  setJourneyStartTime: (next: TimeOfDay) => void;
   undoRemove: () => void;
   clearUndo: () => void;
 };
@@ -20,6 +24,7 @@ type PlanState = {
 export const usePlanStore = create<PlanState>((set, get) => ({
   placeIds: [],
   checkLaterIds: [],
+  journeyStartTime: DEFAULT_START,
 
   isInPlan: (placeId) => get().placeIds.includes(placeId),
   isCheckLater: (placeId) => get().checkLaterIds.includes(placeId),
@@ -69,6 +74,8 @@ export const usePlanStore = create<PlanState>((set, get) => ({
     }),
 
   reorder: (next) => set({ placeIds: next }),
+
+  setJourneyStartTime: (next) => set({ journeyStartTime: next }),
 
   undoRemove: () =>
     set((state) => {

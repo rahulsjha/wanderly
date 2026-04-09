@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dimensions, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryChips } from '@/components/wanderly/category-chips';
@@ -32,6 +33,7 @@ export default function ExploreScreen() {
   const [selectedTags, setSelectedTags] = useState<string[]>(['All']);
   const [sort, setSort] = useState<SortOption>('rating');
   const [isLoading, setIsLoading] = useState(true);
+  const [previewPlace, setPreviewPlace] = useState<Place | null>(null);
 
   const planIds = usePlanStore((s) => s.placeIds);
   const add = usePlanStore((s) => s.add);
@@ -81,8 +83,13 @@ export default function ExploreScreen() {
 
   const openDetail = useCallback(async (place: Place) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({ pathname: '/place/[id]', params: { id: place.id } });
-  }, [router]);
+    setPreviewPlace(place);
+  }, []);
+
+  const closePreview = useCallback(async () => {
+    await Haptics.selectionAsync();
+    setPreviewPlace(null);
+  }, []);
 
   const togglePlan = useCallback(
     async (place: Place) => {
@@ -215,6 +222,73 @@ export default function ExploreScreen() {
         <Ionicons name="list" size={16} color="white" />
         <Text style={styles.planBadgeText}>Plan ({planIds.length})</Text>
       </Pressable>
+
+      <Modal visible={!!previewPlace} transparent animationType="slide" onRequestClose={closePreview}>
+        <View style={styles.previewRoot}>
+          <Pressable style={styles.previewBackdrop} onPress={closePreview} />
+          {previewPlace ? (
+            <View style={[styles.previewCard, { paddingBottom: 18 + insets.bottom }]}> 
+              <View style={styles.previewHero}>
+                <Image source={{ uri: previewPlace.image_url }} contentFit="cover" style={styles.previewHeroImage} />
+                <Pressable style={styles.previewClose} onPress={closePreview} accessibilityRole="button">
+                  <Ionicons name="close" size={18} color={Wanderly.colors.text} />
+                </Pressable>
+              </View>
+
+              <View style={styles.previewContent}>
+                <Text style={styles.previewCategory}>{previewPlace.category.toUpperCase()}</Text>
+                <Text style={styles.previewTitle}>{previewPlace.name}</Text>
+
+                <View style={styles.previewMetaRow}>
+                  <View style={styles.previewMetaPill}>
+                    <Ionicons name="star" size={14} color={Wanderly.colors.text} />
+                    <Text style={styles.previewMetaText}>{previewPlace.rating.toFixed(1)}</Text>
+                  </View>
+                  <View style={styles.previewMetaPill}>
+                    <Ionicons name="navigate" size={14} color={Wanderly.colors.text} />
+                    <Text style={styles.previewMetaText}>{previewPlace.distance_km.toFixed(1)} km</Text>
+                  </View>
+                  <View style={styles.previewMetaPill}>
+                    <Ionicons name="time" size={14} color={Wanderly.colors.text} />
+                    <Text style={styles.previewMetaText}>{previewPlace.estimated_duration_min} min</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.previewDescription}>{previewPlace.description}</Text>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewTags}>
+                  {previewPlace.tags.map((tag) => (
+                    <View key={tag} style={styles.previewTag}>
+                      <Text style={styles.previewTagText}>{tag}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+
+                <View style={styles.previewActionRow}>
+                  <Pressable
+                    style={styles.previewPrimaryBtn}
+                    onPress={() => togglePlan(previewPlace)}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons
+                      name={planIds.includes(previewPlace.id) ? 'heart' : 'heart-outline'}
+                      size={16}
+                      color="white"
+                    />
+                    <Text style={styles.previewPrimaryText}>
+                      {planIds.includes(previewPlace.id) ? 'Saved in Plan' : 'Add to Plan'}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable style={styles.previewSecondaryBtn} onPress={closePreview} accessibilityRole="button">
+                    <Text style={styles.previewSecondaryText}>Close</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -363,6 +437,142 @@ const styles = StyleSheet.create({
   planBadgeText: {
     color: 'white',
     fontSize: 12,
+    fontWeight: '700',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  previewRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  previewBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.42)',
+  },
+  previewCard: {
+    backgroundColor: Wanderly.colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: -8 },
+    elevation: 20,
+  },
+  previewHero: {
+    height: 220,
+    position: 'relative',
+  },
+  previewHeroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  previewClose: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.92)',
+  },
+  previewContent: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    gap: 10,
+  },
+  previewCategory: {
+    fontSize: 11,
+    letterSpacing: 0.8,
+    color: Wanderly.colors.textMuted,
+    fontFamily: Wanderly.fonts.ui,
+    fontWeight: '700',
+  },
+  previewTitle: {
+    fontSize: 24,
+    color: Wanderly.colors.text,
+    fontFamily: Wanderly.fonts.displayItalic,
+  },
+  previewMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  previewMetaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+    backgroundColor: Wanderly.colors.surface2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  previewMetaText: {
+    fontSize: 12,
+    color: Wanderly.colors.text,
+    fontFamily: Wanderly.fonts.ui,
+    fontWeight: '700',
+  },
+  previewDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: Wanderly.colors.textMuted,
+    fontFamily: Wanderly.fonts.ui,
+  },
+  previewTags: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  previewTag: {
+    borderRadius: 999,
+    backgroundColor: Wanderly.colors.sandstone,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  previewTagText: {
+    fontSize: 12,
+    color: Wanderly.colors.text,
+    fontFamily: Wanderly.fonts.ui,
+    fontWeight: '600',
+  },
+  previewActionRow: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  previewPrimaryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: Wanderly.colors.text,
+    paddingVertical: 12,
+  },
+  previewPrimaryText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  previewSecondaryBtn: {
+    borderRadius: 14,
+    backgroundColor: Wanderly.colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  previewSecondaryText: {
+    color: Wanderly.colors.text,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: Wanderly.fonts.ui,
   },

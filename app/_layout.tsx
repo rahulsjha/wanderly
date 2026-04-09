@@ -8,18 +8,18 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import {
-    CormorantGaramond_600SemiBold_Italic,
-    useFonts as useCormorantFonts,
+  CormorantGaramond_600SemiBold_Italic,
+  useFonts as useCormorantFonts,
 } from '@expo-google-fonts/cormorant-garamond';
 import {
-    DMSans_400Regular,
-    DMSans_500Medium,
-    DMSans_700Bold,
-    useFonts as useDMSansFonts,
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_700Bold,
+  useFonts as useDMSansFonts,
 } from '@expo-google-fonts/dm-sans';
 import {
-    NotoSerifDevanagari_600SemiBold,
-    useFonts as useDevanagariFonts,
+  NotoSerifDevanagari_600SemiBold,
+  useFonts as useDevanagariFonts,
 } from '@expo-google-fonts/noto-serif-devanagari';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -63,6 +63,7 @@ export default function RootLayout() {
             <Stack.Screen name="place/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="tour/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="summary" options={{ headerShown: false }} />
+            <Stack.Screen name="finalize" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

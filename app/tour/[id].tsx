@@ -6,7 +6,6 @@ import { router, useGlobalSearchParams, useLocalSearchParams } from 'expo-router
 import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemedText } from '../../components/themed-text';
 import { Wanderly } from '../../constants/wanderly-theme';
 
 export default function TourDetailScreen() {
@@ -37,9 +36,9 @@ export default function TourDetailScreen() {
         </View>
 
         <View style={styles.contentContainer}>
-          <ThemedText type="title" style={styles.title}>
+          <Text style={styles.title}>
             {tour_title}
-          </ThemedText>
+          </Text>
           <View style={styles.metaRow}>
             <View style={styles.ratingPill}>
               <Ionicons name="star" size={14} color={Wanderly.colors.ink} />
