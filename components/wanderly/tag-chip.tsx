@@ -1,6 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
 import { Wanderly } from '@/constants/wanderly-theme';
+import { StyleSheet, Text, View } from 'react-native';
 
 export function TagChip({ label }: { label: string }) {
   return (

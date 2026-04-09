@@ -13,14 +13,12 @@ export function PlaceCard({
   added,
   onPress,
   onToggle,
-  onNext,
   style,
 }: {
   place: Place;
   added: boolean;
   onPress: () => void;
   onToggle: () => void;
-  onNext?: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
   const onToggleWithDelight = async () => {
@@ -49,6 +47,7 @@ export function PlaceCard({
           style={styles.bottomGradient}
         />
 
+
         <Pressable
           onPress={(e) => {
             e.stopPropagation();
@@ -65,31 +64,32 @@ export function PlaceCard({
             <Text numberOfLines={2} style={styles.locationName}>
               {place.name}
             </Text>
-            <View style={styles.ratingRow}>
-              <View style={styles.ratingPill}>
-                <Ionicons name="star-outline" size={16} color="#FFFFFF" />
-                <Text style={styles.ratingText}>{place.rating.toFixed(1)}</Text>
+            <Text numberOfLines={2} style={styles.description}>
+              {place.description}
+            </Text>
+            <Text style={styles.durationInline}>⏱ {place.estimated_duration_min} min</Text>
+            <View style={styles.metaRow}>
+              <View style={styles.metaPill}>
+                <Ionicons name="star-outline" size={14} color="#FFFFFF" />
+                <Text style={styles.metaText}>{place.rating.toFixed(1)}</Text>
               </View>
-              <Text style={styles.reviewsText}>{Math.floor(Math.random() * 500) + 50} reviews</Text>
+              <View style={styles.metaPill}>
+                <Ionicons name="location-outline" size={14} color="#FFFFFF" />
+                <Text style={styles.metaText}>{place.distance_km} km</Text>
+              </View>
+              <View style={styles.metaPill}>
+                <Ionicons name="time-outline" size={14} color="#FFFFFF" />
+                <Text style={styles.metaText}>{place.estimated_duration_min} min</Text>
+              </View>
             </View>
           </View>
         </View>
 
         <Pressable style={styles.seeMoreBar} onPress={onPress}>
           <Text style={styles.seeMoreText}>See more</Text>
-          <Pressable 
-            onPress={(e) => {
-              if (onNext) {
-                e.stopPropagation();
-                onNext();
-              } else {
-                onPress();
-              }
-            }}
-            style={styles.seeMoreArrowCircle}
-          >
+          <View style={styles.seeMoreArrowCircle}>
             <Ionicons name="chevron-forward" size={24} color="#111111" style={{ marginLeft: 2 }} />
-          </Pressable>
+          </View>
         </Pressable>
       </Pressable>
     </View>
@@ -159,33 +159,41 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     lineHeight: 32,
   },
-  ratingRow: {
+  description: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.75)',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  durationInline: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.9)',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginTop: 6,
+    gap: 10,
+    marginTop: 10,
   },
-  ratingPill: {
+  metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.1)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.4)',
   },
-  ratingText: {
-    fontSize: 14,
+  metaText: {
+    fontSize: 12,
     fontWeight: '600',
     color: 'white',
-    fontFamily: Wanderly.fonts.ui,
-  },
-  reviewsText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.7)',
     fontFamily: Wanderly.fonts.ui,
   },
   seeMoreBar: {

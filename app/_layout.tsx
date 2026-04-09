@@ -62,6 +62,7 @@ export default function RootLayout() {
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
             <Stack.Screen name="place/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="tour/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="summary" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

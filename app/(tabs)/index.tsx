@@ -1,16 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Dimensions, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryChips } from '@/components/wanderly/category-chips';
@@ -23,59 +15,69 @@ import { CATEGORIES, PLACES } from '@/data/mock-data';
 import { usePlanStore } from '@/store/plan-store';
 import type { Place, PlaceCategory } from '@/types/wanderly';
 
+type SortOption = 'rating' | 'distance' | 'duration';
+
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const screenWidth = Dimensions.get('window').width;
-  const featuredCardWidth = Math.round(screenWidth * 0.82);
-  const cardSpacing = 8;
-  const itemWidth = featuredCardWidth + cardSpacing;
+  const cardWidth = Math.round(screenWidth * 0.82);
+  const cardSpacing = 12;
+  const itemWidth = cardWidth + cardSpacing;
 
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [categoryId, setCategoryId] = useState<'all' | PlaceCategory>('all');
-
+  const [selectedTags, setSelectedTags] = useState<string[]>(['All']);
+  const [sort, setSort] = useState<SortOption>('rating');
   const [isLoading, setIsLoading] = useState(true);
+
+  const planIds = usePlanStore((s) => s.placeIds);
+  const add = usePlanStore((s) => s.add);
+  const remove = usePlanStore((s) => s.remove);
+  const sortLabel = sort === 'rating' ? 'Rating' : sort === 'distance' ? 'Distance' : 'Duration';
+
   useEffect(() => {
     const t = setTimeout(() => setIsLoading(false), 800);
     return () => clearTimeout(t);
   }, []);
 
-  const planIds = usePlanStore((s) => s.placeIds);
-  const add = usePlanStore((s) => s.add);
-  const remove = usePlanStore((s) => s.remove);
-  const listRef = useRef<any>(null);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 220);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const tagsForCategory = useMemo(() => {
+    const set = new Set<string>();
+    PLACES.forEach((p) => {
+      if (categoryId !== 'all' && p.category !== categoryId) return;
+      p.tags.forEach((t) => set.add(t));
+    });
+    return ['All', ...Array.from(set)];
+  }, [categoryId]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return PLACES.filter((p) => {
+    const q = debouncedQuery.trim().toLowerCase();
+    let next = PLACES.filter((p) => {
       const categoryOk = categoryId === 'all' ? true : p.category === categoryId;
       if (!categoryOk) return false;
-      if (!q) return true;
-      return (
-        p.name.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q) ||
-        p.tags.some((t) => t.toLowerCase().includes(q))
-      );
+      const queryOk = !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
+      if (!queryOk) return false;
+      if (selectedTags.includes('All')) return true;
+      return selectedTags.every((t) => p.tags.includes(t));
     });
-  }, [query, categoryId]);
 
-  const countBump = useSharedValue(1);
-  useEffect(() => {
-    countBump.value = 0.96;
-    countBump.value = withSpring(1, { damping: 14, stiffness: 240 });
-  }, [filtered.length, countBump]);
+    if (sort === 'rating') {
+      next = [...next].sort((a, b) => b.rating - a.rating);
+    } else if (sort === 'distance') {
+      next = [...next].sort((a, b) => a.distance_km - b.distance_km);
+    } else {
+      next = [...next].sort((a, b) => a.estimated_duration_min - b.estimated_duration_min);
+    }
 
-  const countAnim = useAnimatedStyle(() => ({
-    transform: [{ scale: countBump.value }],
-  }));
-
-  const scrollX = useSharedValue(0);
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (e) => {
-      scrollX.value = e.contentOffset.x;
-    },
-  });
+    return next;
+  }, [categoryId, debouncedQuery, selectedTags, sort]);
 
   const openDetail = useCallback(async (place: Place) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -94,19 +96,29 @@ export default function ExploreScreen() {
     [add, remove, planIds]
   );
 
-  const resultsLabel = useMemo(() => {
-    if (filtered.length === 0) return 'No places found';
-    const allAdded = planIds.length > 0 && planIds.length === PLACES.length;
-    if (allAdded && query.trim() === '' && categoryId === 'all') return 'All places in your plan';
-    return `${filtered.length} places found`;
-  }, [categoryId, filtered.length, planIds.length, query]);
+  const onToggleTag = useCallback((tag: string) => {
+    setSelectedTags((prev) => {
+      if (tag === 'All') return ['All'];
+      const clean = prev.filter((t) => t !== 'All');
+      if (clean.includes(tag)) return clean.filter((t) => t !== tag);
+      return [...clean, tag];
+    });
+  }, []);
+
+  const cycleSort = useCallback(() => {
+    setSort((prev) => (prev === 'rating' ? 'distance' : prev === 'distance' ? 'duration' : 'rating'));
+  }, []);
+
+  const triggerSearch = useCallback(() => {
+    setDebouncedQuery(query);
+  }, [query]);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}> 
       <View style={styles.header}>
         <View style={styles.greetingSection}>
           <View>
-            <Text style={styles.greeting}>Hello, Vanessa</Text>
+            <Text style={styles.greeting}>Hello, </Text>
             <Text style={styles.subGreeting}>Welcome to Wanderly</Text>
           </View>
         </View>
@@ -115,9 +127,13 @@ export default function ExploreScreen() {
           <View style={{ flex: 1 }}>
             <SearchBar value={query} onChange={setQuery} placeholder="Search" />
           </View>
-          <View style={styles.filterIconCircle}>
-            <Ionicons name="options-outline" size={20} color="white" />
-          </View>
+          <Pressable style={styles.searchAction} onPress={triggerSearch} accessibilityRole="button">
+            <Ionicons name="search" size={18} color="white" />
+          </Pressable>
+          <Pressable style={styles.sortButton} onPress={cycleSort} accessibilityRole="button">
+            <Ionicons name="swap-vertical" size={18} color="white" />
+            <Text style={styles.sortLabel}>{sortLabel}</Text>
+          </Pressable>
         </View>
         
         <View style={styles.categorySection}>
@@ -125,9 +141,29 @@ export default function ExploreScreen() {
           <CategoryChips
             categories={CATEGORIES}
             selectedId={categoryId}
-            onSelect={(id) => setCategoryId(id)}
+            onSelect={(id) => {
+              setCategoryId(id);
+              setSelectedTags(['All']);
+            }}
           />
         </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagRow}>
+          {tagsForCategory.map((tag) => {
+            const active = selectedTags.includes(tag);
+            return (
+              <Pressable
+                key={tag}
+                onPress={() => onToggleTag(tag)}
+                style={[styles.tagChip, active && styles.tagChipActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.tagText, active && styles.tagTextActive]}>{tag}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {isLoading ? (
@@ -143,61 +179,44 @@ export default function ExploreScreen() {
           <Text style={styles.emptyDesc}>Try a different search or clear filters.</Text>
         </View>
       ) : (
-        <Animated.FlatList
-          ref={listRef}
+        <FlatList
           data={filtered}
           keyExtractor={(p) => p.id}
           horizontal
           showsHorizontalScrollIndicator={false}
+          snapToInterval={itemWidth}
+          decelerationRate="fast"
+          snapToAlignment="center"
+          disableIntervalMomentum
+          ItemSeparatorComponent={() => <View style={{ width: cardSpacing }} />}
           contentContainerStyle={{
             paddingHorizontal: (screenWidth - itemWidth) / 2,
             paddingTop: 8,
             paddingBottom: 120 + insets.bottom,
           }}
-          snapToInterval={itemWidth}
-          decelerationRate="fast"
-          snapToAlignment="center"
-          disableIntervalMomentum
-          onScroll={scrollHandler}
-          scrollEventThrottle={16}
-          renderItem={({ item, index }) => (
-            <AnimatedPlace index={index} scrollX={scrollX} itemWidth={itemWidth}>
-              <View style={{ height: 14 }} />
-              <View style={{ width: featuredCardWidth }}>
-                <PlaceCard
-                  place={item}
-                  added={planIds.includes(item.id)}
-                  onPress={() => openDetail(item)}
-                  onToggle={() => togglePlan(item)}
-                  onNext={() => {
-                    if (index < filtered.length - 1) {
-                      listRef.current?.scrollToIndex({ index: index + 1, animated: true });
-                    }
-                  }}
-                />
-              </View>
-            </AnimatedPlace>
+          renderItem={({ item }) => (
+            <View style={{ width: cardWidth }}>
+              <PlaceCard
+                place={item}
+                added={planIds.includes(item.id)}
+                onPress={() => openDetail(item)}
+                onToggle={() => togglePlan(item)}
+              />
+            </View>
           )}
         />
       )}
+
+      <Pressable
+        style={[styles.planBadge, { top: insets.top + 10 }]}
+        onPress={() => router.push('/summary')}
+        accessibilityRole="button"
+      >
+        <Ionicons name="list" size={16} color="white" />
+        <Text style={styles.planBadgeText}>Plan ({planIds.length})</Text>
+      </Pressable>
     </View>
   );
-}
-
-function AnimatedPlace({ children, index, scrollX, itemWidth }: any) {
-  const style = useAnimatedStyle(() => {
-    const inputRange = [(index - 1) * itemWidth, index * itemWidth, (index + 1) * itemWidth];
-    const scale = interpolate(scrollX.value, inputRange, [0.88, 1, 0.88], Extrapolation.CLAMP);         
-    
-    return {
-      width: itemWidth,
-      alignItems: 'center',
-      justifyContent: 'center',
-      transform: [{ scale }],
-    };
-  });
-
-  return <Animated.View style={style}>{children}</Animated.View>;
 }
 
 const styles = StyleSheet.create({
@@ -232,21 +251,63 @@ const styles = StyleSheet.create({
     fontFamily: Wanderly.fonts.ui,
     marginTop: 2,
   },
-  filterIconCircle: {
-    width: 54,
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchAction: {
+    width: 44,
     height: 54,
-    borderRadius: 27,
+    borderRadius: 22,
     backgroundColor: '#111111',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  searchRow: {
-    flexDirection: 'row',
+  sortButton: {
+    height: 54,
+    paddingHorizontal: 12,
+    borderRadius: 22,
+    backgroundColor: '#111111',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  sortLabel: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: Wanderly.fonts.ui,
   },
   categorySection: {
     gap: 12,
+  },
+  tagRow: {
+    gap: 10,
+    paddingBottom: 4,
+  },
+  tagChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: Wanderly.colors.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Wanderly.colors.border,
+  },
+  tagChipActive: {
+    backgroundColor: Wanderly.colors.text,
+    borderColor: 'rgba(10,10,10,0.25)',
+  },
+  tagText: {
+    fontSize: 12,
+    color: Wanderly.colors.text,
+    fontFamily: Wanderly.fonts.ui,
+  },
+  tagTextActive: {
+    color: 'white',
+    fontWeight: '700',
+    fontFamily: Wanderly.fonts.uiBold,
   },
   sectionTitle: {
     fontSize: 18,
@@ -260,11 +321,6 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     paddingTop: 4,
     gap: 22,
-  },
-  carouselContent: {
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    paddingBottom: 30,
   },
   emptyResults: {
     flex: 1,
@@ -286,5 +342,28 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: Wanderly.colors.mutedText,
     fontFamily: Wanderly.fonts.uiRegular,
+  },
+  planBadge: {
+    position: 'absolute',
+    right: 16,
+    top: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Wanderly.colors.text,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    shadowColor: 'rgba(0,0,0,0.2)',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  planBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: Wanderly.fonts.ui,
   },
 });
