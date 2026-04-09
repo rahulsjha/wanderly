@@ -2,10 +2,6 @@
 
 Wanderly is a React Native mobile application built with Expo, designed for travelers to explore points of interest, build a personalized day itinerary, and view a summary of their plan. This project was developed as part of a mobile developer challenge with a strong focus on UI/UX, engineering quality, and product thinking.
 
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/1259782/260389590-22344a63-630f-41f3-85f3-3c8a1b1c8a0a.png" alt="Wanderly App Screens" width="800"/>
-</p>
-
 ## Features
 
 - **Explore & Filter:** Browse a curated list of places with real-time search and filtering by category and tags.
