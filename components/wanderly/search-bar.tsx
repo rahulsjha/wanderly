@@ -1,4 +1,3 @@
-import { Wanderly } from '@/constants/wanderly-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback } from 'react';
 import { StyleSheet, TextInput } from 'react-native';
@@ -8,6 +7,8 @@ import Animated, {
     useSharedValue,
     withTiming,
 } from 'react-native-reanimated';
+
+import { Wanderly } from '@/constants/wanderly-theme';
 
 export function SearchBar({
   value,
@@ -32,24 +33,24 @@ export function SearchBar({
     const borderColor = interpolateColor(
       focus.value,
       [0, 1],
-      ['rgba(26, 16, 8, 0.12)', 'rgba(196, 146, 42, 0.70)']
+      [Wanderly.colors.border, 'rgba(0, 0, 0, 0.15)']
     );
 
     return {
       borderColor,
-      shadowOpacity: 0.10 + focus.value * 0.10,
+      shadowOpacity: 0.06 + focus.value * 0.06,
       transform: [{ scale: 1 + focus.value * 0.01 }],
     };
   });
 
   return (
     <Animated.View style={[styles.wrap, wrapAnim]}>
-      <Ionicons name="search" size={18} color={Wanderly.colors.gold} />
+      <Ionicons name="search-outline" size={22} color={Wanderly.colors.textMuted} />
       <TextInput
         value={value}
         onChangeText={onChange}
-        placeholder={placeholder ?? 'Search places'}
-        placeholderTextColor={Wanderly.colors.mutedText}
+        placeholder={placeholder ?? 'Search places…'}
+        placeholderTextColor={Wanderly.colors.textMuted}
         autoCapitalize="none"
         autoCorrect={false}
         clearButtonMode="while-editing"
@@ -67,22 +68,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: Wanderly.colors.sand,
+    backgroundColor: Wanderly.colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(26, 16, 8, 0.12)',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    shadowColor: 'rgba(26,16,8,1)',
-    shadowOpacity: 0.10,
+    borderColor: Wanderly.colors.border,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    minHeight: 56,
+    shadowColor: 'rgba(0,0,0,0.06)',
+    shadowOpacity: 0.08,
     shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    color: Wanderly.colors.ink,
+    fontSize: 16,
+    color: Wanderly.colors.text,
     fontFamily: Wanderly.fonts.uiRegular,
   },
 });

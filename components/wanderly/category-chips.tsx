@@ -6,8 +6,8 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } fr
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 function ChipIcon({ id, active }: { id: CategoryDefinition['id']; active: boolean }) {
-  const stroke = active ? 'rgba(255,255,255,0.95)' : 'rgba(26,16,8,0.90)';
-  const fill = active ? 'rgba(255,255,255,0.18)' : 'rgba(26,16,8,0.08)';
+  const stroke = active ? 'rgba(255,255,255,0.95)' : 'rgba(10,10,10,0.70)';
+  const fill = active ? 'rgba(255,255,255,0.18)' : 'rgba(10,10,10,0.08)';
 
   // These are intentionally simple, “crafted” glyphs (not generic icon fonts).
   switch (id) {
@@ -181,18 +181,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Wanderly.radius.pill,
-    backgroundColor: 'rgba(242,232,217,0.92)',
+    backgroundColor: Wanderly.colors.surface2,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(26,16,8,0.10)',
+    borderColor: Wanderly.colors.border,
   },
   chipSelected: {
-    backgroundColor: Wanderly.colors.primary,
-    borderColor: 'rgba(232,96,44,0.22)',
-    shadowColor: 'rgba(26,16,8,1)',
-    shadowOpacity: 0.16,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    backgroundColor: Wanderly.colors.text,
+    borderColor: 'rgba(10,10,10,0.25)',
+    shadowColor: 'rgba(0,0,0,0.1)',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   iconWrap: {
     width: 22,
@@ -200,15 +200,15 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(26,16,8,0.08)',
+    backgroundColor: 'rgba(10,10,10,0.06)',
   },
   iconWrapSelected: {
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
   label: {
     fontSize: 13,
-    color: Wanderly.colors.ink,
-    opacity: 0.9,
+    color: Wanderly.colors.text,
+    opacity: 0.8,
     fontFamily: Wanderly.fonts.ui,
   },
   labelSelected: {
@@ -223,6 +223,6 @@ const styles = StyleSheet.create({
     bottom: 2,
     height: 3,
     borderRadius: 999,
-    backgroundColor: 'rgba(196,146,42,0.95)',
+    backgroundColor: Wanderly.colors.text,
   },
 });

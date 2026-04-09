@@ -1,294 +1,220 @@
 import { Wanderly } from '@/constants/wanderly-theme';
-import { categoryLabel, formatDuration } from '@/lib/format';
-import { localDestinationForId } from '@/lib/place-assets';
-import { placeHindiName } from '@/lib/place-hindi';
-import { unsplashPlaceImageUrl } from '@/lib/place-image';
+import { categoryLabel } from '@/lib/format';
 import type { Place } from '@/types/wanderly';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-    interpolate,
-    useAnimatedStyle,
-    useSharedValue,
-    withSequence,
-    withSpring,
-    withTiming,
-} from 'react-native-reanimated';
 
 export function PlaceCard({
   place,
   added,
   onPress,
   onToggle,
+  onNext,
+  style,
 }: {
   place: Place;
   added: boolean;
   onPress: () => void;
   onToggle: () => void;
+  onNext?: () => void;
+  style?: StyleProp<ViewStyle>;
 }) {
-  const duration = useMemo(() => formatDuration(place.estimated_duration_min), [place.estimated_duration_min]);
-  const imageUrl = useMemo(() => unsplashPlaceImageUrl(place), [place]);
-
-  const addScale = useSharedValue(1);
-  const ring = useSharedValue(0);
-  const ribbonT = useSharedValue(added ? 1 : 0);
-
-  useEffect(() => {
-    ribbonT.value = withTiming(added ? 1 : 0, { duration: added ? 240 : 160 });
-  }, [added, ribbonT]);
-
-  const addStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: addScale.value }],
-  }));
-
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: 1 - ring.value,
-    transform: [{ scale: 0.6 + ring.value * 1.7 }],
-  }));
-
-  const ribbonStyle = useAnimatedStyle(() => {
-    const t = ribbonT.value;
-    return {
-      opacity: t,
-      transform: [{ translateX: interpolate(t, [0, 1], [16, 0]) }],
-    };
-  });
-
   const onToggleWithDelight = async () => {
-    addScale.value = withSequence(
-      withSpring(0.86, { damping: 12, stiffness: 260 }),
-      withSpring(1.15, { damping: 12, stiffness: 240 }),
-      withSpring(1, { damping: 14, stiffness: 220 })
-    );
-    ring.value = 0;
-    ring.value = withTiming(1, { duration: 520 });
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onToggle();
   };
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, added && styles.cardAdded, pressed && { opacity: 0.98 }]}
-      accessibilityRole="button"
-      accessibilityLabel={`Open details for ${place.name}`}
-    >
-      <View style={styles.hero}>
+    <View style={[styles.shadowShell, style]}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.card, added && styles.cardAdded, pressed && { opacity: 0.985 }]}
+        accessibilityRole="button"
+        accessibilityLabel={`Open details for ${place.name}`}
+      >
         <Image
-          source={{ uri: imageUrl }}
-          placeholder={localDestinationForId(place.id)}
+          source={{ uri: place.image_url }}
           transition={220}
           contentFit="cover"
-          style={StyleSheet.absoluteFill}
+          style={{ width: '100%', height: '100%', position: 'absolute' }}
         />
+
         <LinearGradient
-          colors={['rgba(26,16,8,0)', 'rgba(26,16,8,0.42)', 'rgba(26,16,8,0.78)']}
-          locations={[0, 0.58, 1]}
-          style={StyleSheet.absoluteFill}
+          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.88)']}
+          locations={[0, 0.45, 1]}
+          style={styles.bottomGradient}
         />
 
-        <View style={styles.topRow}>
-          <View style={styles.categoryGlass}>
-            <Text style={styles.categoryText}>{categoryLabel(place.category)}</Text>
-          </View>
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            onToggleWithDelight();
+          }}
+          style={styles.heartButton}
+        >
+          <Ionicons name={added ? 'heart' : 'heart-outline'} size={24} color="rgba(255,255,255,0.85)" />
+        </Pressable>
 
-          {added ? (
-            <View style={styles.ribbonWrap} pointerEvents="none">
-              <Animated.View style={[styles.ribbon, ribbonStyle]}>
-                <Text style={styles.ribbonText}>In your plan</Text>
-              </Animated.View>
+        <View style={styles.bottomContent}>
+          <View style={styles.bottomLeft}>
+            <Text style={styles.locationDescriptor}>{categoryLabel(place.category)}</Text>
+            <Text numberOfLines={2} style={styles.locationName}>
+              {place.name}
+            </Text>
+            <View style={styles.ratingRow}>
+              <View style={styles.ratingPill}>
+                <Ionicons name="star-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.ratingText}>{place.rating.toFixed(1)}</Text>
+              </View>
+              <Text style={styles.reviewsText}>{Math.floor(Math.random() * 500) + 50} reviews</Text>
             </View>
-          ) : null}
+          </View>
         </View>
 
-        <View style={styles.bottomRow}>
-          <View style={styles.metaPills}>
-            <View style={styles.metaGlass}>
-              <Ionicons name="star" size={14} color={Wanderly.colors.gold} />
-              <Text style={styles.metaGlassText}>{place.rating.toFixed(1)}</Text>
-            </View>
-            <View style={styles.metaGlass}>
-              <Ionicons name="time" size={14} color="rgba(255,255,255,0.92)" />
-              <Text style={styles.metaGlassText}>{duration}</Text>
-            </View>
-          </View>
-
-          <Pressable
+        <Pressable style={styles.seeMoreBar} onPress={onPress}>
+          <Text style={styles.seeMoreText}>See more</Text>
+          <Pressable 
             onPress={(e) => {
-              e.stopPropagation();
-              onToggleWithDelight();
+              if (onNext) {
+                e.stopPropagation();
+                onNext();
+              } else {
+                onPress();
+              }
             }}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel={added ? `Remove ${place.name} from plan` : `Add ${place.name} to plan`}
+            style={styles.seeMoreArrowCircle}
           >
-            <Animated.View style={[styles.addWrap, addStyle, added ? styles.addWrapAdded : null]}>
-              <Animated.View style={[styles.ring, ringStyle]} pointerEvents="none" />
-              <Ionicons
-                name={added ? 'checkmark' : 'add'}
-                size={22}
-                color="white"
-              />
-            </Animated.View>
+            <Ionicons name="chevron-forward" size={24} color="#111111" style={{ marginLeft: 2 }} />
           </Pressable>
-        </View>
-
-        <View style={styles.titleBlock}>
-          <Text numberOfLines={2} ellipsizeMode="tail" style={styles.title}>
-            {place.name}
-          </Text>
-          <Text numberOfLines={1} style={styles.hindi}>
-            {placeHindiName(place)}
-          </Text>
-        </View>
-      </View>
-    </Pressable>
+        </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    backgroundColor: Wanderly.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Wanderly.colors.border,
-  },
-  cardAdded: {
-    borderWidth: 2,
-    borderColor: 'rgba(232, 96, 44, 0.70)',
-    shadowColor: 'rgba(232, 96, 44, 1)',
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
+  shadowShell: {
+    shadowColor: 'rgba(0,0,0,0.26)',
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
     elevation: 10,
   },
-  hero: {
+  card: {
     width: '100%',
-    aspectRatio: 16 / 9,
+    aspectRatio: 0.78,
+    borderRadius: 34,
+    overflow: 'hidden',
+    backgroundColor: Wanderly.colors.surface2,
   },
-  topRow: {
+  cardAdded: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  bottomGradient: {
     position: 'absolute',
-    top: 12,
-    left: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    bottom: 0,
+    width: '100%',
+    height: '74%',
   },
-  categoryGlass: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: Wanderly.radius.pill,
-    backgroundColor: 'rgba(251, 247, 242, 0.20)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(251, 247, 242, 0.28)',
-  },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.92)',
-    letterSpacing: 0.2,
-    fontFamily: Wanderly.fonts.ui,
-  },
-  ribbonWrap: {
+  heartButton: {
     position: 'absolute',
-    right: -52,
-    top: 10,
-    transform: [{ rotate: '45deg' }],
-  },
-  ribbon: {
-    backgroundColor: Wanderly.colors.primary,
-    paddingVertical: 6,
-    paddingHorizontal: 70,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.26)',
-  },
-  ribbonText: {
-    color: 'rgba(255,255,255,0.94)',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    fontFamily: Wanderly.fonts.uiBold,
-  },
-  bottomRow: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  metaPills: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-  },
-  metaGlass: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: Wanderly.radius.pill,
-    backgroundColor: 'rgba(251, 247, 242, 0.20)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(251, 247, 242, 0.28)',
-  },
-  metaGlassText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: 'rgba(255,255,255,0.92)',
-    fontFamily: Wanderly.fonts.uiBold,
-  },
-  addWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    top: 20,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Wanderly.colors.primary,
-    shadowColor: 'rgba(26,16,8,1)',
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 12,
+    zIndex: 10,
   },
-  addWrapAdded: {
-    backgroundColor: Wanderly.colors.success,
-  },
-  ring: {
+  bottomContent: {
     position: 'absolute',
+    bottom: 96,
+    left: 20,
+    right: 20,
+    zIndex: 5,
+  },
+  bottomLeft: {
+    gap: 2,
+  },
+  locationDescriptor: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  locationName: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: 'white',
+    fontFamily: Wanderly.fonts.uiBold,
+    letterSpacing: -0.5,
+    lineHeight: 32,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 6,
+  },
+  ratingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  ratingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  reviewsText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  seeMoreBar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 16,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(22,22,24,0.88)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  seeMoreText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+    fontFamily: Wanderly.fonts.ui,
+  },
+  seeMoreArrowCircle: {
+    position: 'absolute',
+    right: 6,
     width: 52,
     height: 52,
     borderRadius: 26,
-    borderWidth: 2,
-    borderColor: Wanderly.colors.gold,
-  },
-  titleBlock: {
-    position: 'absolute',
-    left: 12,
-    right: 72,
-    bottom: 50,
-    gap: 4,
-  },
-  title: {
-    fontSize: 22,
-    color: 'rgba(255,255,255,0.98)',
-    fontFamily: Wanderly.fonts.displayItalic,
-    letterSpacing: -0.2,
-    lineHeight: 26,
-  },
-  hindi: {
-    fontSize: 13,
-    color: 'rgba(196, 146, 42, 0.95)',
-    fontFamily: Wanderly.fonts.devanagari,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -1,5 +1,13 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+    interpolate,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
+} from 'react-native-reanimated';
+
 import { Wanderly } from '@/constants/wanderly-theme';
 
 export function UndoToast({
@@ -17,44 +25,42 @@ export function UndoToast({
   onDismiss: () => void;
   durationMs?: number;
 }) {
-  const translate = useRef(new Animated.Value(40)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const t = useSharedValue(0);
+  const isMounted = useRef(false);
 
-  const animIn = useMemo(
-    () =>
-      Animated.parallel([
-        Animated.timing(translate, { toValue: 0, duration: 180, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
-      ]),
-    [opacity, translate]
-  );
+  const wrapStyle = useAnimatedStyle(() => {
+    return {
+      opacity: t.value,
+      transform: [{ translateY: interpolate(t.value, [0, 1], [40, 0]) }],
+    };
+  });
 
-  const animOut = useMemo(
-    () =>
-      Animated.parallel([
-        Animated.timing(translate, { toValue: 40, duration: 160, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
-      ]),
-    [opacity, translate]
-  );
+  useEffect(() => {
+    if (!isMounted.current) {
+      isMounted.current = true;
+      t.value = visible ? 1 : 0;
+      return;
+    }
+    t.value = withTiming(visible ? 1 : 0, { duration: visible ? 180 : 160 });
+  }, [t, visible]);
 
   useEffect(() => {
     if (!visible) return;
-
-    animIn.start();
-    const t = setTimeout(() => {
-      animOut.start(({ finished }) => {
-        if (finished) onDismiss();
+    const timeout = setTimeout(() => {
+      t.value = withTiming(0, { duration: 160 }, (finished) => {
+        'worklet';
+        if (finished) {
+          runOnJS(onDismiss)();
+        }
       });
     }, durationMs);
-
-    return () => clearTimeout(t);
-  }, [visible, animIn, animOut, durationMs, onDismiss]);
+    return () => clearTimeout(timeout);
+  }, [durationMs, onDismiss, t, visible]);
 
   if (!visible) return null;
 
   return (
-    <Animated.View style={[styles.wrap, { opacity, transform: [{ translateY: translate }] }]}>
+    <Animated.View style={[styles.wrap, wrapStyle]}>
       <View style={styles.card}>
         <Text style={styles.msg}>{message}</Text>
         <Pressable onPress={onAction} style={styles.action} accessibilityRole="button">

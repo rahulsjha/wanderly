@@ -7,7 +7,7 @@ export function SheetBackdrop(props: BottomSheetBackdropProps) {
       appearsOnIndex={0}
       disappearsOnIndex={-1}
       pressBehavior="close"
-      opacity={0.45}
+      opacity={0.5}
     />
   );
 }

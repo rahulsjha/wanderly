@@ -13,8 +13,8 @@ export const Colors = {
     text: '#1A1008',
     background: '#FBF7F2',
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    icon: '#8C6B6B',
+    tabIconDefault: '#8C6B6B',
     tabIconSelected: tintColorLight,
   },
   dark: {
@@ -26,6 +26,12 @@ export const Colors = {
     tabIconSelected: tintColorDark,
   },
 };
+
+/**
+ * Wanderly's single source of truth tokens (Rajasthani palette + typography).
+ * Most app surfaces consume these via `Wanderly`.
+ */
+export { Wanderly as WanderlyTheme } from './wanderly-theme';
 
 export const Fonts = Platform.select({
   ios: {

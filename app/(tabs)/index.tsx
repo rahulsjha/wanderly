@@ -1,28 +1,25 @@
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { FlashList } from '@shopify/flash-list';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+    Extrapolation,
+    interpolate,
+    useAnimatedScrollHandler,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SheetBackdrop } from '@/components/wanderly/bottom-sheet-backdrop';
 import { CategoryChips } from '@/components/wanderly/category-chips';
-import { JaliPattern } from '@/components/wanderly/jali-pattern';
+import { CamelIllustration } from '@/components/wanderly/empty-illustrations';
 import { PlaceCard } from '@/components/wanderly/place-card';
-import { PlanCountBadge } from '@/components/wanderly/plan-count-badge';
-import { PrimaryButton } from '@/components/wanderly/primary-button';
 import { SearchBar } from '@/components/wanderly/search-bar';
-import { TagChip } from '@/components/wanderly/tag-chip';
+import { ShimmerCard } from '@/components/wanderly/shimmer-card';
 import { Wanderly } from '@/constants/wanderly-theme';
 import { CATEGORIES, PLACES } from '@/data/mock-data';
-import { categoryLabel, formatDuration } from '@/lib/format';
-import { localDestinationForId } from '@/lib/place-assets';
-import { placeHindiName } from '@/lib/place-hindi';
-import { unsplashPlaceImageUrl } from '@/lib/place-image';
 import { usePlanStore } from '@/store/plan-store';
 import type { Place, PlaceCategory } from '@/types/wanderly';
 
@@ -30,15 +27,24 @@ export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  const screenWidth = Dimensions.get('window').width;
+  const featuredCardWidth = Math.round(screenWidth * 0.82);
+  const cardSpacing = 8;
+  const itemWidth = featuredCardWidth + cardSpacing;
+
   const [query, setQuery] = useState('');
   const [categoryId, setCategoryId] = useState<'all' | PlaceCategory>('all');
+
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setIsLoading(false), 800);
+    return () => clearTimeout(t);
+  }, []);
 
   const planIds = usePlanStore((s) => s.placeIds);
   const add = usePlanStore((s) => s.add);
   const remove = usePlanStore((s) => s.remove);
-
-  const [selected, setSelected] = useState<Place | null>(null);
-  const sheetRef = useRef<BottomSheetModal>(null);
+  const listRef = useRef<any>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -64,51 +70,58 @@ export default function ExploreScreen() {
     transform: [{ scale: countBump.value }],
   }));
 
+  const scrollX = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollX.value = e.contentOffset.x;
+    },
+  });
+
   const openDetail = useCallback(async (place: Place) => {
-    setSelected(place);
-    await Haptics.selectionAsync();
-    sheetRef.current?.present();
-  }, []);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({ pathname: '/place/[id]', params: { id: place.id } });
+  }, [router]);
 
   const togglePlan = useCallback(
     async (place: Place) => {
       const exists = planIds.includes(place.id);
       if (exists) remove(place.id);
       else add(place.id);
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await Haptics.impactAsync(
+        exists ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium
+      );
     },
     [add, remove, planIds]
   );
 
+  const resultsLabel = useMemo(() => {
+    if (filtered.length === 0) return 'No places found';
+    const allAdded = planIds.length > 0 && planIds.length === PLACES.length;
+    if (allAdded && query.trim() === '' && categoryId === 'all') return 'All places in your plan';
+    return `${filtered.length} places found`;
+  }, [categoryId, filtered.length, planIds.length, query]);
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}> 
       <View style={styles.header}>
-        <LinearGradient
-          colors={[Wanderly.colors.ink, Wanderly.colors.deepRose, Wanderly.colors.primary]}
-          locations={[0, 0.62, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <JaliPattern opacity={0.08} />
-        </View>
-        <LinearGradient
-          colors={['rgba(251,247,242,0.06)', 'rgba(251,247,242,0.66)', Wanderly.colors.warmWhite]}
-          locations={[0, 0.62, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-
-        <View style={styles.headerTopRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.city}>Jaipur</Text>
-            <Text style={styles.cityHi}>जयपुर</Text>
-            <Text style={styles.subtitle}>Build your perfect day, stop by stop.</Text>
+        <View style={styles.greetingSection}>
+          <View>
+            <Text style={styles.greeting}>Hello, Vanessa</Text>
+            <Text style={styles.subGreeting}>Welcome to Wanderly</Text>
           </View>
-
-          <PlanCountBadge count={planIds.length} onPress={() => router.push('/(tabs)/plan')} />
         </View>
 
-        <View style={styles.controls}>
-          <SearchBar value={query} onChange={setQuery} placeholder="Search places, vibes, tags…" />
+        <View style={styles.searchRow}>
+          <View style={{ flex: 1 }}>
+            <SearchBar value={query} onChange={setQuery} placeholder="Search" />
+          </View>
+          <View style={styles.filterIconCircle}>
+            <Ionicons name="options-outline" size={20} color="white" />
+          </View>
+        </View>
+        
+        <View style={styles.categorySection}>
+          <Text style={styles.sectionTitle}>Select your next trip</Text>
           <CategoryChips
             categories={CATEGORIES}
             selectedId={categoryId}
@@ -117,345 +130,161 @@ export default function ExploreScreen() {
         </View>
       </View>
 
-      <View style={styles.resultsHeader}>
-        <Text style={styles.resultsTitle}>Places</Text>
-        <Animated.Text style={[styles.resultsMeta, countAnim]}>{filtered.length} places found</Animated.Text>
-      </View>
-
-      <FlashList
-        data={filtered}
-        keyExtractor={(p) => p.id}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
-          <PlaceCard
-            place={item}
-            added={planIds.includes(item.id)}
-            onPress={() => openDetail(item)}
-            onToggle={() => togglePlan(item)}
-          />
-        )}
-      />
-
-      <BottomSheetModal
-        ref={sheetRef}
-        snapPoints={['42%', '92%']}
-        backdropComponent={SheetBackdrop}
-        backgroundStyle={{ backgroundColor: Wanderly.colors.surface }}
-        handleIndicatorStyle={{ backgroundColor: 'rgba(17,24,28,0.22)', width: 44 }}
-      >
-        {selected ? (
-          <View style={styles.sheet}>
-            <Image
-              source={{ uri: unsplashPlaceImageUrl(selected) }}
-              placeholder={localDestinationForId(selected.id)}
-              transition={200}
-              style={styles.sheetHero}
-              contentFit="cover"
-            />
-
-            <View style={styles.sheetBody}>
-              <View style={styles.sheetTitleRow}>
-                <View style={{ flex: 1 }}>
-                  <Text numberOfLines={2} ellipsizeMode="tail" style={styles.sheetTitle}>
-                    {selected.name}
-                  </Text>
-                  <Text style={styles.sheetHi}>{placeHindiName(selected)}</Text>
-                  <Text style={styles.sheetSub}>
-                    Rated {selected.rating.toFixed(1)} · {categoryLabel(selected.category)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.factsRow}>
-                <Fact label="Duration" value={formatDuration(selected.estimated_duration_min)} />
-                <Fact label="Price" valueNode={<PriceDots level={selected.price_level} />} />
-                <Fact label="Hours" value={selected.opening_hours} />
-              </View>
-
-              <View style={styles.tipCard}>
-                <Text style={styles.tipKicker}>Insider tip</Text>
-                <Text style={styles.tipText}>{insiderTipFor(selected)}</Text>
-              </View>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.photoRow}
-              >
-                {(['detail', 'interior', 'street', 'architecture'] as const).map((k) => (
-                  <Image
-                    key={k}
-                    source={{ uri: unsplashPlaceImageUrl(selected, { w: 520, h: 360 }, k) }}
-                    placeholder={localDestinationForId(selected.id)}
-                    transition={180}
-                    contentFit="cover"
-                    style={styles.photo}
-                  />
-                ))}
-              </ScrollView>
-
-              <View style={styles.tagsRow}>
-                {selected.tags.slice(0, 6).map((t) => (
-                  <TagChip key={t} label={t} />
-                ))}
-              </View>
-
-              <Text style={styles.descFull}>{selected.description}</Text>
-
-              <View style={{ height: 10 }} />
-
-              <PrimaryButton
-                label={planIds.includes(selected.id) ? 'Remove from Plan' : 'Add to Plan'}
-                onPress={() => togglePlan(selected)}
-              />
-              <View style={{ height: 14 }} />
-            </View>
-          </View>
-        ) : null}
-      </BottomSheetModal>
-    </View>
-  );
-}
-
-function Fact({
-  label,
-  value,
-  valueNode,
-}: {
-  label: string;
-  value?: string;
-  valueNode?: ReactNode;
-}) {
-  return (
-    <View style={styles.fact}>
-      <Text style={styles.factLabel}>{label}</Text>
-      {valueNode ? (
-        <View style={{ marginTop: 2 }}>{valueNode}</View>
+      {isLoading ? (
+        <View style={styles.listContent}>
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <ShimmerCard key={idx} />
+          ))}
+        </View>
+      ) : filtered.length === 0 ? (
+        <View style={styles.emptyResults}>
+          <CamelIllustration />
+          <Text style={styles.emptyTitle}>No matches</Text>
+          <Text style={styles.emptyDesc}>Try a different search or clear filters.</Text>
+        </View>
       ) : (
-        <Text numberOfLines={2} style={styles.factValue}>
-          {value}
-        </Text>
+        <Animated.FlatList
+          ref={listRef}
+          data={filtered}
+          keyExtractor={(p) => p.id}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: (screenWidth - itemWidth) / 2,
+            paddingTop: 8,
+            paddingBottom: 120 + insets.bottom,
+          }}
+          snapToInterval={itemWidth}
+          decelerationRate="fast"
+          snapToAlignment="center"
+          disableIntervalMomentum
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          renderItem={({ item, index }) => (
+            <AnimatedPlace index={index} scrollX={scrollX} itemWidth={itemWidth}>
+              <View style={{ height: 14 }} />
+              <View style={{ width: featuredCardWidth }}>
+                <PlaceCard
+                  place={item}
+                  added={planIds.includes(item.id)}
+                  onPress={() => openDetail(item)}
+                  onToggle={() => togglePlan(item)}
+                  onNext={() => {
+                    if (index < filtered.length - 1) {
+                      listRef.current?.scrollToIndex({ index: index + 1, animated: true });
+                    }
+                  }}
+                />
+              </View>
+            </AnimatedPlace>
+          )}
+        />
       )}
     </View>
   );
 }
 
-function PriceDots({ level }: { level: string }) {
-  if (/free/i.test(level)) {
-    return <Text style={styles.factValue}>Free</Text>;
-  }
+function AnimatedPlace({ children, index, scrollX, itemWidth }: any) {
+  const style = useAnimatedStyle(() => {
+    const inputRange = [(index - 1) * itemWidth, index * itemWidth, (index + 1) * itemWidth];
+    const scale = interpolate(scrollX.value, inputRange, [0.88, 1, 0.88], Extrapolation.CLAMP);         
+    
+    return {
+      width: itemWidth,
+      alignItems: 'center',
+      justifyContent: 'center',
+      transform: [{ scale }],
+    };
+  });
 
-  const count = Math.max(1, (level.match(/\$/g) ?? []).length);
-  return (
-    <View style={styles.priceRow}>
-      {Array.from({ length: 4 }).map((_, idx) => {
-        const active = idx < count;
-        return <View key={idx} style={[styles.priceDot, active ? styles.priceDotOn : styles.priceDotOff]} />;
-      })}
-    </View>
-  );
-}
-
-function insiderTipFor(place: Place) {
-  const tags = new Set(place.tags.map((t) => t.toLowerCase()));
-  if (tags.has('sunset')) return 'Go 45 minutes before sunset for golden light and fewer crowds.';
-  if (tags.has('photography')) return 'Arrive right at opening to catch soft light and clean frames.';
-  if (tags.has('rooftop') || tags.has('views')) return 'Ask for the best corner table—views make the stop.';
-  if (place.category === 'shopping') return 'Carry cash, start 30% lower, and smile—haggling is part of the fun.';
-  if (place.category === 'cafe') return 'Order a chai/coffee plus one local sweet—quick and satisfying.';
-  if (place.category === 'restaurant') return 'If you can, go slightly earlier than peak hours for faster service.';
-  return 'Keep 10–15 minutes buffer for traffic between stops.';
+  return <Animated.View style={style}>{children}</Animated.View>;
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Wanderly.colors.warmWhite,
+    backgroundColor: Wanderly.colors.background,
   },
   header: {
+    backgroundColor: Wanderly.colors.surface,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(26,16,8,0.08)',
+    paddingBottom: 18,
+    borderBottomWidth: 0,
+    gap: 14,
   },
-  headerTopRow: {
+  greetingSection: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  city: {
-    fontSize: 44,
-    color: Wanderly.colors.warmWhite,
-    letterSpacing: -0.8,
-    fontFamily: Wanderly.fonts.displayItalic,
-    lineHeight: 50,
-  },
-  cityHi: {
-    marginTop: 2,
-    fontSize: 16,
-    color: 'rgba(196,146,42,0.95)',
-    fontFamily: Wanderly.fonts.devanagari,
-  },
-  subtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: 'rgba(251,247,242,0.82)',
-    fontFamily: Wanderly.fonts.ui,
-  },
-  controls: {
-    marginTop: 14,
-    gap: 12,
-  },
-  resultsHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'baseline',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
-  resultsTitle: {
-    fontSize: 18,
+  greeting: {
+    fontSize: 24,
     fontWeight: '900',
-    color: Wanderly.colors.ink,
-    letterSpacing: -0.2,
-    fontFamily: Wanderly.fonts.uiBold,
-  },
-  resultsMeta: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Wanderly.colors.mutedText,
+    color: Wanderly.colors.text,
     fontFamily: Wanderly.fonts.ui,
+    letterSpacing: -0.5,
+  },
+  subGreeting: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: Wanderly.colors.textMuted,
+    fontFamily: Wanderly.fonts.ui,
+    marginTop: 2,
+  },
+  filterIconCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#111111',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  categorySection: {
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Wanderly.colors.text,
+    fontFamily: Wanderly.fonts.ui,
+    letterSpacing: -0.3,
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 28,
-    paddingTop: 6,
-    gap: 14,
+    paddingBottom: 32,
+    paddingTop: 4,
+    gap: 22,
   },
-  sheet: {
+  carouselContent: {
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 30,
+  },
+  emptyResults: {
     flex: 1,
-  },
-  sheetHero: {
-    height: 230,
-    width: '100%',
-  },
-  sheetBody: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
   },
-  sheetTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  sheetTitle: {
-    fontSize: 28,
+  emptyTitle: {
+    marginTop: 4,
+    fontSize: 18,
+    fontWeight: '900',
     color: Wanderly.colors.ink,
-    letterSpacing: -0.4,
     fontFamily: Wanderly.fonts.displayItalic,
   },
-  sheetHi: {
-    marginTop: 2,
-    fontSize: 14,
-    color: 'rgba(196,146,42,0.95)',
-    fontFamily: Wanderly.fonts.devanagari,
-  },
-  sheetSub: {
-    marginTop: 4,
-    fontSize: 13,
-    color: Wanderly.colors.mutedText,
-    fontFamily: Wanderly.fonts.ui,
-  },
-  factsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  fact: {
-    flex: 1,
-    backgroundColor: Wanderly.colors.surface2,
-    borderRadius: 14,
-    padding: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Wanderly.colors.border,
-    gap: 4,
-  },
-  factLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Wanderly.colors.mutedText,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    fontFamily: Wanderly.fonts.uiBold,
-  },
-  factValue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Wanderly.colors.ink,
-    opacity: 0.9,
-    fontFamily: Wanderly.fonts.ui,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    gap: 6,
-    alignItems: 'center',
-  },
-  priceDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 8,
-  },
-  priceDotOn: {
-    backgroundColor: Wanderly.colors.primary,
-  },
-  priceDotOff: {
-    backgroundColor: 'rgba(26,16,8,0.10)',
-  },
-  tipCard: {
-    marginTop: 2,
-    backgroundColor: Wanderly.colors.sand,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(26,16,8,0.10)',
-    padding: 12,
-    gap: 6,
-  },
-  tipKicker: {
-    fontSize: 11,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    color: 'rgba(26,16,8,0.60)',
-    fontFamily: Wanderly.fonts.uiBold,
-  },
-  tipText: {
+  emptyDesc: {
+    textAlign: 'center',
     fontSize: 13,
     lineHeight: 18,
-    color: 'rgba(26,16,8,0.82)',
-    fontFamily: Wanderly.fonts.uiRegular,
-  },
-  photoRow: {
-    paddingTop: 2,
-    paddingBottom: 2,
-    gap: 10,
-  },
-  photo: {
-    width: 150,
-    height: 96,
-    borderRadius: 16,
-    backgroundColor: Wanderly.colors.surface2,
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  descFull: {
-    marginTop: 4,
-    fontSize: 14,
-    lineHeight: 20,
-    color: Wanderly.colors.ink,
-    opacity: 0.78,
+    color: Wanderly.colors.mutedText,
     fontFamily: Wanderly.fonts.uiRegular,
   },
 });
