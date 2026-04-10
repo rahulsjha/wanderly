@@ -72,6 +72,62 @@ Wanderly solves the full loop: browse → pick → arrange → verify → go. Ev
 
 ---
 
+## Quick Start
+
+### Prerequisites
+- **Node.js v20+** and **npm v10+**
+- **Expo Go app** (iOS: App Store, Android: Google Play)
+- Optional: Xcode for iOS Simulator or Android Studio for Android Emulator
+
+### 3-Step Setup
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Start development server
+npx expo start
+
+# 3. Open on device or simulator
+# Press 'a' for Android Emulator
+# Press 'i' for iOS Simulator  
+# Press 'w' for web (limited gesture support)
+# Scan QR code with Expo Go app
+```
+
+### Installing Production APK
+
+#### Build with EAS (Cloud Build - Recommended)
+```bash
+npm install -g eas-cli
+eas login
+eas build -p android --profile production
+# Download APK from build link
+adb install wanderly.apk
+```
+
+#### Using Pre-built Compressed APK
+```bash
+# Extract compressed APK
+tar -xJf wanderly-xz.tar.xz  # XZ format (highest compression)
+unzip wanderly-compressed.zip  # ZIP format
+tar -xjf wanderly-bzip2.tar.bz2  # BZ2 format
+
+# Install on connected Android device
+adb install wanderly.apk
+
+# Or manually tap the APK file on your device to install
+```
+
+⚠️ **Note:** Compressed files (`.tar.xz`, `.zip`, `.tar.bz2`) must be extracted first — they are NOT directly installable.
+
+### Troubleshooting
+- **Stale modules:** Run `npx expo start -c` to clear Metro cache
+- **Port conflict:** Use `npx expo start --localhost` to avoid LAN issues
+- **APK not found:** Ensure device is connected via `adb devices` before install
+
+---
+
 ## Setup & Running the App
 
 ### What You Need
@@ -92,33 +148,86 @@ If you run into stale module errors or unexpected behavior after pulling new cha
 
 Once the app opens, a healthy setup should show all 35 place cards on the Explore tab, search filtering in under 300ms, the plan badge updating immediately after adding a place, a calculated timeline on the Summary tab, smooth drag-and-drop reordering, and the plan still intact after closing and reopening the app.
 
+### Building & Installing the Production APK
+
+To build a production APK for installation on Android devices, use EAS Build:
+
+```bash
+# Install EAS CLI globally (one-time setup)
+npm install -g eas-cli
+
+# Log in to your Expo account
+eas login
+
+# Configure your project (one-time setup)
+eas build:configure
+
+# Build the production APK
+eas build -p android --profile production
+```
+
+Once the build completes on Expo Cloud, you'll receive a download link. Scan the QR code or click the link to install directly on your device, or download the APK file to sideload.
+
+### Using Pre-built Compressed APK Files
+
+If you have a pre-built APK in compressed format, **you must extract it first** before installation:
+
+
+**For BZ2 format:**
+```bash
+tar -xjf wanderly-bzip2.tar.bz2
+# Output: wanderly.apk
+```
+
+⚠️ **Important:** The compressed files (`.tar.xz`, `.zip`, `.tar.bz2`) are **not directly installable**. Always extract to get the `.apk` file first. Then:
+- Sideload on Android: Connect your device, run `adb install wanderly.apk`
+- Or open the extracted `.apk` file on your Android device to install via the file explorer
+
+---
+
+## Project Structure Overview
+
+The codebase follows strict separation of concerns. Each folder has one responsibility, making it easy to locate, test, and modify code.
+
+```
+app/                    # File-based routing (Expo Router)
+├── (tabs)/            # Tabbed screens
+├── place/[id].tsx     # Place detail screen
+├── tour/[id].tsx      # Tour detail screen
+└── modal.tsx          # Modal presentations
+
+components/            # UI layer (React components)
+├── ui/                # Generic, reusable UI elements (buttons, badges, loaders)
+└── wanderly/          # Domain-specific components (place cards, timeline, bottom sheet)
+
+lib/                    # Business logic layer (pure TypeScript, zero React)
+├── time.ts            # Timeline calculation engine
+├── opening-hours.ts   # Hours parsing and conflict detection
+├── plan-derivations.ts # Cost labels, totals, derived data
+└── format.ts          # Date/time formatting utilities
+
+store/                  # State management (Zustand)
+├── plan-store.ts      # Core state, actions, persistence config
+└── plan-selectors.ts  # Memoized selectors (is-in-plan, total-duration, etc.)
+
+types/                  # Single file with all shared TypeScript types
+data/                   # Mock data, Zod schema, validated exports
+constants/              # Design tokens (colors, spacing, fonts)
+```
+
+### Architectural Principles
+
+**Separation of Concerns** — UI components know nothing about business logic. Business logic functions have zero React dependencies. The store is the only bridge.
+
+**Pure Functions** — `lib/` functions always return the same output for the same input. No side effects. This makes them trivial to test and use anywhere.
+
+**Single Source of Truth** — Every rendered value traces back to the Zustand store. No derived state scattered across components.
+
+**Selective Subscriptions** — Components only re-render when their specific slice of state changes. Adding a stop doesn't re-render the Explore screen.
+
 ---
 
 ## Architecture Overview
-
-The project is structured around a strict separation of concerns — each folder has one responsibility and one owner. No layer reaches across boundaries it doesn't own.
-
-### How the Folders Are Divided
-
-**`app/`** handles all routing via Expo Router's file-based convention. Each file in this folder is a screen. The tab navigator, modal presentation, and route params are all handled declaratively through the file system rather than manually configured navigation stacks. This keeps navigation logic invisible to the rest of the app.
-
-**`components/`** holds all UI, split into two subfolders. `ui/` contains generic, brand-agnostic elements — buttons, badges, loaders — that have no knowledge of Wanderly's domain. `wanderly/` holds domain components that understand the app's data models: place cards, timeline rows, the bottom sheet, the undo toast, and so on. The rule is simple: `wanderly/` components can know what a `Place` is; `ui/` components cannot.
-
-**`lib/`** holds all business logic as pure TypeScript functions with zero React dependencies. The timeline calculation, opening-hours parser, cost label derivation, and formatting utilities all live here. Because these functions are pure — same input always produces the same output, no side effects — they're trivial to test and completely decoupled from the UI.
-
-**`store/`** contains the Zustand store split across two files. `plan-store.ts` defines the state shape and all actions, while `plan-selectors.ts` exports memoized derived selectors such as "is this place already in the plan?" and "what is the total duration?". Co-locating selectors with the store prevents them from being scattered across component files as the codebase grows.
-
-**`data/`** holds the mock JSON file, its Zod validation schema, and a typed export module that validates the data at startup and builds a `placesById` index for O(1) lookups. If validation fails, the app throws a descriptive error listing specific field issues rather than silently loading corrupted data.
-
-**`types/`** is a single file containing every shared TypeScript interface — `Place`, `PlanItem`, `TimeOfDay`, `Category`, and so on. One canonical location for types prevents drift between layers and makes refactoring predictable.
-
-**`constants/`** stores design tokens: the color palette, spacing scale, border radii, and font sizes. These values are referenced throughout the component layer rather than hardcoded inline, so visual consistency is enforced structurally rather than by team convention.
-
-### How Data Flows Through the App
-
-A user action — a tap, swipe, or drag — triggers a callback in a component. That callback calls an action on the Zustand store. The store updates state synchronously and persists to AsyncStorage asynchronously in the background. Components subscribed to the changed slice of state re-render. If the change affects the timeline (a reorder, an add, a remove), the `buildTimeline` function in `lib/time.ts` is called with the new ordered list and returns recalculated start and end times for every stop. The UI reflects the new timeline immediately.
-
-No component fetches its own data. No component owns derived state. Every piece of rendered information traces back to a single source.
 
 ---
 
