@@ -50,6 +50,9 @@ Existing travel tools — Google Maps, booking apps, travel blogs — each solve
 
 Wanderly solves the full loop: browse → pick → arrange → verify → go. Every feature decision was made through that lens.
 
+Demo Video:  https://drive.google.com/file/d/1Gg45FxJXX49IV1VPNgc2_WV6pJmmqxXR/view?usp=sharing
+APK: https://drive.google.com/file/d/12x7HA1itvHDiojGfNIWoA5R-7YXxtnvK/view?usp=sharing
+
 ---
 
 ## Features at a Glance
