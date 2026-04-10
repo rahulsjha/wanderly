@@ -173,4 +173,8 @@ Every decision in a time-constrained build is a resource allocation problem. Her
 
 ---
 
+<<<<<<< HEAD
 *Built with care for the traveler who wants one less thing to figure out. 🗺️*
+=======
+*Built with care for the traveler who wants one less thing to figure out. 🗺️*
+>>>>>>> e7b9538 (Build Apk issues fixes - 1)
