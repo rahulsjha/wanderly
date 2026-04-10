@@ -18,6 +18,19 @@ This project was built as part of a 10-hour mobile developer challenge, with del
 
 ---
 
+## App Screens
+
+<p align="center">
+  <img src="./assets/images/screen_1.png" alt="Explore Tab" width="200" style="margin: 10px;"/>
+  <img src="./assets/images/screen_2.png" alt="Place Details" width="200" style="margin: 10px;"/>
+  <img src="./assets/images/screen_3_1.png" alt="My Plan" width="200" style="margin: 10px;"/>
+  <img src="./assets/images/screen_4_1.png" alt="Finalized Journey" width="200" style="margin: 10px;"/>
+</p>
+
+**Explore** → Browse 35 curated places with instant search and filters | **Details** → Rich place information in an interactive bottom sheet | **My Plan** → Build and reorder your itinerary with real-time timeline calculations | **Finalized Journey** → Review your complete day plan with all stops, timing, and costs
+
+---
+
 ## Table of Contents
 
 1. [Problem Statement](#problem-statement)
