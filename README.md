@@ -183,11 +183,3 @@ Every decision in a time-constrained build is a resource allocation problem. Her
 **"Share Plan" button is non-functional.** The UI element is fully designed and visible on the finalize screen, but tapping it currently does nothing. This is a known stub — it communicates product intent — and the wiring is a straightforward follow-up task, not a forgotten bug.
 
 **No true offline sync.** The app works entirely offline using its persisted in-memory state. However, if a backend were introduced in a future version, there is no sync mechanism to reconcile local changes made while offline with a remote server. The current architecture would need a conflict resolution strategy before backend integration.
-
----
-
-<<<<<<< HEAD
-*Built with care for the traveler who wants one less thing to figure out. 🗺️*
-=======
-*Built with care for the traveler who wants one less thing to figure out. 🗺️*
->>>>>>> e7b9538 (Build Apk issues fixes - 1)
